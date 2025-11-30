@@ -20,14 +20,14 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
         private readonly FontCache _fontCache;
 
         // Delegate for adding image sections (injected from SectionRenderer)
-        private readonly Action<RenderContext.DrawingState, Point> _addImageSectionCallback;
+        private readonly RenderContext.AddImageSectionDelegate _addImageSectionCallback;
 
         public TimestampRenderer(
             ChatRenderOptions options,
             RenderContext context,
             BitmapCache cache,
             FontCache fontCache,
-            Action<RenderContext.DrawingState, Point> addImageSectionCallback)
+            RenderContext.AddImageSectionDelegate addImageSectionCallback)
         {
             _options = options;
             _context = context;
@@ -48,10 +48,13 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
 
             int displayWidth = GetTimestampDisplayWidth(timestamp);
 
-            // Check if we need to wrap to next section
-            if (state.DrawPosition.X + displayWidth > _options.ChatWidth - _options.SidePadding * 2)
+            // Update line height for timestamp (use section height as timestamp fills entire section)
+            state.CurrentLineHeight = Math.Max(state.CurrentLineHeight, _options.SectionHeight);
+
+            // Check if we need to wrap to next section (MaxWidth is right-edge X coordinate)
+            if (state.DrawPosition.X + displayWidth > state.MaxWidth)
             {
-                _addImageSectionCallback(state, state.DefaultPosition);
+                _addImageSectionCallback(ref state, state.DefaultPosition);
             }
 
             // Ensure we have a valid canvas for the current section bitmap

@@ -13,6 +13,11 @@ namespace TwitchDownloaderCore.ChatRender.Core
     {
         private readonly ChatRenderOptions _options;
 
+        // Delegates for section rendering operations
+        public delegate void AddImageSectionDelegate(ref RenderContext.DrawingState state, Point defaultPos);
+        public delegate bool CheckAndWrapDelegate(ref RenderContext.DrawingState state, int elementWidth);
+        public delegate void EnsureCanvasDelegate(ref RenderContext.DrawingState state);
+
         // Pre-calculated geometry (set once, read many)
         public int SectionBaselineY { get; private set; }
         public float SectionVerticalCenter => _options.SectionHeight / 2f;

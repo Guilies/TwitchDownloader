@@ -87,19 +87,19 @@ namespace TwitchDownloaderCore
             );
             
             // Helper callback for adding image sections
-            Action<RenderContext.DrawingState, Point> addImageSectionCallback = (state, defaultPos) =>
+            RenderContext.AddImageSectionDelegate addImageSectionCallback = (ref RenderContext.DrawingState state, Point defaultPos) =>
             {
                 sectionRenderer.AddImageSection(ref state, defaultPos);
             };
             
             // Helper callback for checking and wrapping if needed
-            Func<RenderContext.DrawingState, int, bool> checkAndWrapCallback = (state, elementWidth) =>
+            RenderContext.CheckAndWrapDelegate checkAndWrapCallback = (ref RenderContext.DrawingState state, int elementWidth) =>
             {
                 return sectionRenderer.CheckAndWrapIfNeeded(ref state, elementWidth);
             };
             
             // Helper callback for ensuring canvas exists
-            Action<RenderContext.DrawingState> ensureCanvasCallback = (state) =>
+            RenderContext.EnsureCanvasDelegate ensureCanvasCallback = (ref RenderContext.DrawingState state) =>
             {
                 sectionRenderer.EnsureCanvas(ref state);
             };
@@ -108,7 +108,7 @@ namespace TwitchDownloaderCore
             var timestampRenderer = new TimestampRenderer(renderOptions, _context, _bitmapCache, _fontCache, addImageSectionCallback);
             var avatarRenderer = new AvatarRenderer(renderOptions, _context, _imageCache);
             var badgeRenderer = new BadgeRenderer(renderOptions, _context, _imageCache, _bitmapCache, addImageSectionCallback);
-            var textRenderer = new TextRenderer(renderOptions, _context, _fontCache, _bitmapCache, addImageSectionCallback);
+            var textRenderer = new TextRenderer(renderOptions, _context, _fontCache, _bitmapCache, addImageSectionCallback, checkAndWrapCallback, ensureCanvasCallback);
             var emoteRenderer = new EmoteRenderer(renderOptions, _context, _imageCache, _bitmapCache, addImageSectionCallback, checkAndWrapCallback, ensureCanvasCallback);
             var messageRenderer = new MessageRenderer(renderOptions, _context, _imageCache, _fontCache, _bitmapCache, textRenderer, emoteRenderer, addImageSectionCallback, checkAndWrapCallback, ensureCanvasCallback);
             

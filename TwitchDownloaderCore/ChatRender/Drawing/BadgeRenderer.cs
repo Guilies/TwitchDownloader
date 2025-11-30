@@ -23,14 +23,14 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
         private readonly BitmapCache _bitmapCache;
 
         // Delegate for adding image sections (injected from SectionRenderer)
-        private readonly Action<RenderContext.DrawingState, Point> _addImageSectionCallback;
+        private readonly RenderContext.AddImageSectionDelegate _addImageSectionCallback;
 
         public BadgeRenderer(
             ChatRenderOptions options,
             RenderContext context,
             ImageCache imageCache,
             BitmapCache bitmapCache,
-            Action<RenderContext.DrawingState, Point> addImageSectionCallback)
+            RenderContext.AddImageSectionDelegate addImageSectionCallback)
         {
             _options = options;
             _context = context;
@@ -56,10 +56,10 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             // Calculate total width needed for all badges
             int totalBadgeWidth = CalculateTotalBadgeWidth(badgeImages);
 
-            // Check if we need to wrap to next section
-            if (state.DrawPosition.X + totalBadgeWidth > _options.ChatWidth - _options.SidePadding * 2)
+            // Check if we need to wrap to next section (MaxWidth is right-edge X coordinate)
+            if (state.DrawPosition.X + totalBadgeWidth > state.MaxWidth)
             {
-                _addImageSectionCallback(state, state.DefaultPosition);
+                _addImageSectionCallback(ref state, state.DefaultPosition);
             }
 
             // Ensure we have a valid canvas for the current section bitmap
@@ -77,6 +77,9 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 {
                     continue;
                 }
+
+                // Update line height to accommodate badge
+                state.CurrentLineHeight = Math.Max(state.CurrentLineHeight, badgeImage.Height);
 
                 // Switched to use rendercontext's canvas directly for performance and consistency
                 float badgeY = _context.SectionVerticalCenter - badgeImage.Height / 2f;

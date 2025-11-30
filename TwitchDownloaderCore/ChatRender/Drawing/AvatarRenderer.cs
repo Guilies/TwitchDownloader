@@ -60,6 +60,9 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 state.CurrentCanvas = tempCanvas;
             }
 
+            // Update line height to accommodate avatar
+            state.CurrentLineHeight = Math.Max(state.CurrentLineHeight, avatarImage.Height);
+
             var avatarY = (float)((_options.SectionHeight - avatarImage.Height) / 2.0);
             state.CurrentCanvas.DrawBitmap(avatarImage, state.DrawPosition.X, avatarY);
             state.DrawPosition.X += avatarImage.Width + _options.WordSpacing;

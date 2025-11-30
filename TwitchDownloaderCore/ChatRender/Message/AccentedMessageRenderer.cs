@@ -28,7 +28,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
         private readonly TextRenderer _textRenderer;
 
         // Delegate for adding image sections (injected from SectionRenderer)
-        private readonly Action<RenderContext.DrawingState, Point> _addImageSectionCallback;
+        private readonly RenderContext.AddImageSectionDelegate _addImageSectionCallback;
 
         // Delegate for DrawNonAccentedMessage (injected from SectionRenderer)
         private readonly DrawNonAccentedMessageDelegate _drawNonAccentedMessageCallback;
@@ -48,7 +48,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
             HighlightIcons highlightIcons,
             MessageRenderer messageRenderer,
             TextRenderer textRenderer,
-            Action<RenderContext.DrawingState, Point> addImageSectionCallback,
+            RenderContext.AddImageSectionDelegate addImageSectionCallback,
             DrawNonAccentedMessageDelegate drawNonAccentedMessageCallback)
         {
             _options = options;
@@ -142,7 +142,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
             state.DefaultPosition.X = state.DrawPosition.X;
 
             _textRenderer.DrawUsername(comment, ref state, false, Purple, commentIndex);
-            _addImageSectionCallback(state, state.DefaultPosition);
+            _addImageSectionCallback(ref state, state.DefaultPosition);
 
             // Remove the commenter's name from the resub message
             comment.message.body = comment.message.body[(comment.commenter.display_name.Length + 1)..];
@@ -165,7 +165,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
                 return;
             }
 
-            _addImageSectionCallback(state, state.DefaultPosition);
+            _addImageSectionCallback(ref state, state.DefaultPosition);
             state.DrawPosition = customMessagePos;
             state.DefaultPosition = customMessagePos;
             _drawNonAccentedMessageCallback(customResubMessage, ref state, emoteSectionList, false, commentIndex);
@@ -226,7 +226,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
             state.DefaultPosition.X = state.DrawPosition.X;
 
             _textRenderer.DrawUsername(comment, ref state, false, Purple);
-            _addImageSectionCallback(state, state.DefaultPosition);
+            _addImageSectionCallback(ref state, state.DefaultPosition);
 
             // Remove the commenter's name from the watch streak message
             comment.message.body = comment.message.body[(comment.commenter.display_name.Length + 1)..];
@@ -249,7 +249,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
                 return;
             }
 
-            _addImageSectionCallback(state, state.DefaultPosition);
+            _addImageSectionCallback(ref state, state.DefaultPosition);
             state.DrawPosition = customMessagePos;
             state.DefaultPosition = customMessagePos;
             _drawNonAccentedMessageCallback(customMessage, ref state, emoteSectionList, false, commentIndex);
@@ -269,7 +269,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
             state.DefaultPosition.X = state.DrawPosition.X;
 
             _textRenderer.DrawUsername(comment, ref state, false, Purple);
-            _addImageSectionCallback(state, state.DefaultPosition);
+            _addImageSectionCallback(ref state, state.DefaultPosition);
 
             // Remove the commenter's name from the charity donation message
             comment.message.body = comment.message.body[(comment.commenter.display_name.Length + 2)..];

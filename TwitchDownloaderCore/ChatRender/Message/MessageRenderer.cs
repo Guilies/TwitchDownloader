@@ -16,6 +16,7 @@ using TwitchDownloaderCore.ChatRender.Utilities;
 using TwitchDownloaderCore.Models;
 using TwitchDownloaderCore.Options;
 using TwitchDownloaderCore.TwitchObjects;
+using static TwitchDownloaderCore.ChatRender.Core.RenderContext;
 
 namespace TwitchDownloaderCore.ChatRender.Message
 {
@@ -37,10 +38,11 @@ namespace TwitchDownloaderCore.ChatRender.Message
         private readonly TextRenderer _textRenderer;
         private readonly EmoteRenderer _emoteRenderer;
 
-        // Delegate for adding image sections (injected from SectionRenderer)
-        private readonly Action<RenderContext.DrawingState, Point> _addImageSectionCallback;
-        private readonly Func<RenderContext.DrawingState, int, bool> _checkAndWrapCallback;
-        private readonly Action<RenderContext.DrawingState> _ensureCanvasCallback;
+        // Delegate for adding image sections (injected from RenderContext)
+        private readonly RenderContext.AddImageSectionDelegate _addImageSectionCallback;
+        private readonly RenderContext.CheckAndWrapDelegate _checkAndWrapCallback;
+        private readonly RenderContext.EnsureCanvasDelegate _ensureCanvasCallback;
+
 
         public MessageRenderer(
             ChatRenderOptions options,
@@ -50,9 +52,9 @@ namespace TwitchDownloaderCore.ChatRender.Message
             BitmapCache bitmapCache,
             TextRenderer textRenderer,
             EmoteRenderer emoteRenderer,
-            Action<RenderContext.DrawingState, Point> addImageSectionCallback,
-            Func<RenderContext.DrawingState, int, bool> checkAndWrapCallback,
-            Action<RenderContext.DrawingState> ensureCanvasCallback)
+            RenderContext.AddImageSectionDelegate addImageSectionCallback,
+            RenderContext.CheckAndWrapDelegate checkAndWrapCallback,
+            RenderContext.EnsureCanvasDelegate ensureCanvasCallback)
         {
             _options = options;
             _context = context;
@@ -68,6 +70,8 @@ namespace TwitchDownloaderCore.ChatRender.Message
 
         public void DrawMessage(Comment comment, ref RenderContext.DrawingState state, List<(Point, TwitchEmote)> emotePositionList, bool highlightWords)
         {
+            System.Diagnostics.Debug.WriteLine($"[MessageRenderer.DrawMessage] START - Message by {comment.commenter?.display_name ?? "Unknown"}, FragmentCount={comment.message.fragments?.Count ?? 0}, Pos=({state.DrawPosition.X},{state.DrawPosition.Y})");
+            
             int bitsCount = comment.message.bits_spent;
             foreach (var fragment in comment.message.fragments)
             {
@@ -88,6 +92,8 @@ namespace TwitchDownloaderCore.ChatRender.Message
                     _emoteRenderer.DrawFirstPartyEmote(fragment, ref state, emotePositionList, highlightWords);
                 }
             }
+            
+            System.Diagnostics.Debug.WriteLine($"[MessageRenderer.DrawMessage] END - FinalPos=({state.DrawPosition.X},{state.DrawPosition.Y}), EmotesDrawn={emotePositionList.Count}");
         }
 
         private void DrawFragmentPart(
@@ -100,24 +106,30 @@ namespace TwitchDownloaderCore.ChatRender.Message
             bool skipEmoji = false,
             bool skipNonFont = false)
         {
+            System.Diagnostics.Debug.WriteLine($"[MessageRenderer.DrawFragmentPart] Fragment=\"{fragmentPart.Substring(0, Math.Min(20, fragmentPart.Length))}{(fragmentPart.Length > 20 ? "..." : "")}\", Pos=({state.DrawPosition.X},{state.DrawPosition.Y})");
+            
             if (!skipThird && TryGetTwitchEmote(_imageCache.ThirdPartyEmotes, fragmentPart, out var emote))
             {
+                System.Diagnostics.Debug.WriteLine($"[MessageRenderer.DrawFragmentPart] Rendering as THIRD PARTY EMOTE: {fragmentPart}");
                 // Check wrap before drawing emote
                 int emoteWidth = emote.Info.Width + _options.EmoteSpacing;
-                _checkAndWrapCallback(state, emoteWidth);
+                _checkAndWrapCallback(ref state, emoteWidth);
                 
                 _emoteRenderer.DrawThirdPartyEmote(emote, ref state, emotePositionList, highlightWords);
             }
             else if (!skipEmoji && RegexUtility.EmojiRegex.IsMatch(fragmentPart))
             {
+                System.Diagnostics.Debug.WriteLine($"[MessageRenderer.DrawFragmentPart] Rendering as EMOJI: {fragmentPart}");
                 DrawEmojiMessage(ref state, emotePositionList, bitsCount, fragmentPart, highlightWords);
             }
             else if (!skipNonFont && (!_fontCache.MessageFont.ContainsGlyphs(fragmentPart) || new StringInfo(fragmentPart).LengthInTextElements < fragmentPart.Length))
             {
+                System.Diagnostics.Debug.WriteLine($"[MessageRenderer.DrawFragmentPart] Rendering as NON-FONT: {fragmentPart}");
                 DrawNonFontMessage(ref state, bitsCount, fragmentPart, highlightWords);
             }
             else
             {
+                System.Diagnostics.Debug.WriteLine($"[MessageRenderer.DrawFragmentPart] Rendering as REGULAR TEXT: {fragmentPart}");
                 DrawRegularMessage(ref state, emotePositionList, bitsCount, fragmentPart, highlightWords);
             }
         }
@@ -137,7 +149,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
 
             // Check wrap before drawing text
             int textWidth = _textRenderer.MeasureTextWidth(fragmentString, _fontCache.MessageFont, true);
-            _checkAndWrapCallback(state, textWidth);
+            _checkAndWrapCallback(ref state, textWidth);
 
             // Fall back to regular text
             _textRenderer.DrawText(fragmentString, _fontCache.MessageFont, true, ref state, highlightWords);
@@ -181,10 +193,13 @@ namespace TwitchDownloaderCore.ChatRender.Message
 
             // Check wrap before drawing emote
             int emoteWidth = emoteInfo.Width + _options.EmoteSpacing;
-            _checkAndWrapCallback(state, emoteWidth);
+            _checkAndWrapCallback(ref state, emoteWidth);
+
+            // Update line height to accommodate cheer emote
+            state.CurrentLineHeight = Math.Max(state.CurrentLineHeight, emoteInfo.Height);
 
             // Ensure we have a valid canvas for the current section bitmap
-            _ensureCanvasCallback(state);
+            _ensureCanvasCallback(ref state);
 
             Point emotePoint = new Point
             {
@@ -307,10 +322,13 @@ namespace TwitchDownloaderCore.ChatRender.Message
 
             // Check wrap before drawing emoji
             int emojiWidth = emojiInfo.Width + _options.EmoteSpacing;
-            _checkAndWrapCallback(state, emojiWidth);
+            _checkAndWrapCallback(ref state, emojiWidth);
+
+            // Update line height to accommodate emoji
+            state.CurrentLineHeight = Math.Max(state.CurrentLineHeight, emojiInfo.Height);
 
             // Ensure we have a valid canvas for the current section bitmap
-            _ensureCanvasCallback(state);
+            _ensureCanvasCallback(ref state);
 
             Point emotePoint = new Point
             {
@@ -348,7 +366,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
                 int textWidth = (int)(fragmentSpan.Length * _context.BlockArtCharWidth);
                 if (_options.BlockArtPreWrap && state.DrawPosition.X + textWidth > _options.BlockArtPreWrapWidth)
                 {
-                    _addImageSectionCallback(state, state.DefaultPosition);
+                    _addImageSectionCallback(ref state, state.DefaultPosition);
                 }
             }
 
@@ -373,7 +391,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
                         
                         // Check wrap before drawing
                         int charWidth = _textRenderer.MeasureTextWidth(fragmentSpan.Slice(j, 2).ToString(), font, false);
-                        _checkAndWrapCallback(state, charWidth);
+                        _checkAndWrapCallback(ref state, charWidth);
                         
                         _textRenderer.DrawText(fragmentSpan.Slice(j, 2).ToString(), font, false, ref state, highlightWords);
                     }
@@ -389,7 +407,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
                     {
                         // Check wrap before drawing buffered text
                         int textWidth = _textRenderer.MeasureTextWidth(inFontBuffer.ToString(), _fontCache.MessageFont, false);
-                        _checkAndWrapCallback(state, textWidth);
+                        _checkAndWrapCallback(ref state, textWidth);
                         
                         _textRenderer.DrawText(inFontBuffer.ToString(), _fontCache.MessageFont, false, ref state, highlightWords);
                         inFontBuffer.Clear();
@@ -406,7 +424,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
                         
                         // Check wrap before drawing buffered text
                         int textWidth = _textRenderer.MeasureTextWidth(nonFontBuffer.ToString(), font, false);
-                        _checkAndWrapCallback(state, textWidth);
+                        _checkAndWrapCallback(ref state, textWidth);
                         
                         _textRenderer.DrawText(nonFontBuffer.ToString(), font, false, ref state, highlightWords);
                         nonFontBuffer.Clear();
@@ -436,7 +454,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
                 
                 // Check wrap before drawing
                 int textWidth = _textRenderer.MeasureTextWidth(nonFontBuffer.ToString(), font, padding);
-                _checkAndWrapCallback(state, textWidth);
+                _checkAndWrapCallback(ref state, textWidth);
                 
                 _textRenderer.DrawText(nonFontBuffer.ToString(), font, padding, ref state, highlightWords);
                 nonFontBuffer.Clear();
@@ -446,7 +464,7 @@ namespace TwitchDownloaderCore.ChatRender.Message
             {
                 // Check wrap before drawing
                 int textWidth = _textRenderer.MeasureTextWidth(inFontBuffer.ToString(), _fontCache.MessageFont, padding);
-                _checkAndWrapCallback(state, textWidth);
+                _checkAndWrapCallback(ref state, textWidth);
                 
                 _textRenderer.DrawText(inFontBuffer.ToString(), _fontCache.MessageFont, padding, ref state, highlightWords);
                 inFontBuffer.Clear();

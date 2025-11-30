@@ -9,6 +9,7 @@ using TwitchDownloaderCore.ChatRender.Utilities;
 using TwitchDownloaderCore.Extensions;
 using TwitchDownloaderCore.Options;
 using TwitchDownloaderCore.TwitchObjects;
+using static TwitchDownloaderCore.ChatRender.Core.RenderContext;
 
 namespace TwitchDownloaderCore.ChatRender.Drawing
 {
@@ -34,21 +35,28 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
         // Just for the sake of consistency
         private readonly BitmapCache _bitmapCache;
 
-        // Delegate for adding image sections (injected from SectionRenderer)
-        private readonly Action<RenderContext.DrawingState, Point> _addImageSectionCallback;
+
+        // Delegate for adding image sections (injected from RenderContext)
+        private readonly AddImageSectionDelegate _addImageSectionCallback;
+        private readonly CheckAndWrapDelegate _checkAndWrapCallback;
+        private readonly EnsureCanvasDelegate _ensureCanvasCallback;
 
         public TextRenderer(
             ChatRenderOptions options,
             RenderContext context,
             FontCache fontCache,
             BitmapCache bitmapCache,
-            Action<RenderContext.DrawingState, Point> addImageSectionCallback)
+            AddImageSectionDelegate addImageSectionCallback,
+            CheckAndWrapDelegate checkAndWrapCallback,
+            EnsureCanvasDelegate ensureCanvasCallback)
         {
             _options = options;
             _context = context;
             _fontCache = fontCache;
             _bitmapCache = bitmapCache;
             _addImageSectionCallback = addImageSectionCallback ?? throw new ArgumentNullException(nameof(addImageSectionCallback));
+            _checkAndWrapCallback = checkAndWrapCallback ?? throw new ArgumentNullException(nameof(checkAndWrapCallback));
+            _ensureCanvasCallback = ensureCanvasCallback ?? throw new ArgumentNullException(nameof(ensureCanvasCallback));
         }
 
         public void DrawUsername(
@@ -71,47 +79,103 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
         }
 
         public void DrawText(
-            string drawText,
-            SKPaint textFont,
-            bool padding,
-            ref RenderContext.DrawingState state,
-            bool highlightWords,
-            bool noWrap = false)
+        string drawText,
+        SKPaint textFont,
+        bool padding,
+        ref RenderContext.DrawingState state,
+        bool highlightWords,
+        bool noWrap = false)
         {
             if (string.IsNullOrEmpty(drawText))
                 return;
 
             bool isRtl = TextUtilities.IsRightToLeft(drawText);
-            float textWidth = TextUtilities.MeasureText(drawText, textFont, isRtl);
             int spacing = padding ? _options.WordSpacing : 0;
-            int totalWidth = (int)Math.Floor(textWidth + spacing);
 
-            // Ensure we have a valid canvas for the current section bitmap
-            if (state.CurrentCanvas == null && state.SectionImages.Count > 0)
+            Debug.WriteLine($"[TextRenderer.DrawText] Text=\"{drawText.Substring(0, Math.Min(30, drawText.Length))}{(drawText.Length > 30 ? "..." : "")}\", Pos=({state.DrawPosition.X},{state.DrawPosition.Y}), MaxWidth={state.MaxWidth}, noWrap={noWrap}");
+
+            // Calculate remaining width using absolute coordinates (MaxWidth is right-edge X coordinate)
+            int remainingWidth = state.MaxWidth - state.DrawPosition.X;
+            // If for some reason MaxWidth is not initialized, fallback to global value
+            if (state.MaxWidth <= 0)
+                remainingWidth = (_options.ChatWidth - _options.SidePadding) - state.DrawPosition.X;
+
+            // Fast path: if entire text fits remaining space, draw it
+            float measuredWhole = TextUtilities.MeasureText(drawText, textFont, isRtl);
+            if (noWrap || measuredWhole + spacing <= remainingWidth)
             {
-                var currentBitmap = state.SectionImages[state.SectionImages.Count - 1].bitmap;
-                state.CurrentCanvas = _bitmapCache.GetOrCreateCanvas(currentBitmap);
+                Debug.WriteLine($"[TextRenderer.DrawText] FAST PATH - Text fits. Width={measuredWhole}, Remaining={remainingWidth}");
+                
+                // Update line height
+                var fontMetrics = textFont.FontMetrics;
+                int textHeight = (int)Math.Ceiling(Math.Abs(fontMetrics.Ascent) + Math.Abs(fontMetrics.Descent) + fontMetrics.Leading);
+                state.CurrentLineHeight = Math.Max(state.CurrentLineHeight, textHeight);
+
+                // Ensure we have a canvas
+                _ensureCanvasCallback(ref state);
+
+                if (highlightWords)
+                    DrawHighlightBackground(state, measuredWhole, padding);
+
+                if (_options.Outline)
+                    DrawTextOutline(drawText, textFont, state, isRtl);
+
+                DrawTextContent(drawText, textFont, state, isRtl);
+
+                state.DrawPosition.X += (int)Math.Floor(measuredWhole + spacing);
+                return;
             }
 
-            // Draw highlight background if needed
-            if (highlightWords)
+            Debug.WriteLine($"[TextRenderer.DrawText] ENTERING CHUNK LOOP - Text too wide. Measured={measuredWhole}, Remaining={remainingWidth}");
+            
+            // CHUNK LOOP: split into prefixes that fit the *remaining* width at the time of drawing
+            while (!string.IsNullOrEmpty(drawText))
             {
-                DrawHighlightBackground(state, textWidth, padding);
+                remainingWidth = state.MaxWidth - state.DrawPosition.X;
+                if (state.MaxWidth <= 0)
+                    remainingWidth = (_options.ChatWidth - _options.SidePadding) - state.DrawPosition.X;
+                
+                Debug.WriteLine($"[TextRenderer.DrawText] CHUNK ITERATION - RemainingText=\"{drawText.Substring(0, Math.Min(20, drawText.Length))}...\", RemainingWidth={remainingWidth}, Pos=({state.DrawPosition.X},{state.DrawPosition.Y})");
+
+                // If the remaining text now fits, draw the rest
+                measuredWhole = TextUtilities.MeasureText(drawText, textFont, isRtl);
+                if (measuredWhole + spacing <= remainingWidth)
+                {
+                    Debug.WriteLine($"[TextRenderer.DrawText] FINAL CHUNK FITS - Drawing remaining text: \"{drawText}\"");
+                    // draw last piece (noWrap true to avoid re-splitting)
+                    DrawText(drawText, textFont, padding, ref state, highlightWords, noWrap: true);
+                    break;
+                }
+
+                // binary-search the largest prefix that fits into remainingWidth
+                int lo = 0, hi = drawText.Length;
+                while (lo < hi)
+                {
+                    int mid = (lo + hi + 1) >> 1;
+                    var prefix = drawText.AsSpan(0, mid).ToString();
+                    if (TextUtilities.MeasureText(prefix, textFont, isRtl) + spacing <= remainingWidth)
+                        lo = mid;
+                    else
+                        hi = mid - 1;
+                }
+
+                int take = lo > 0 ? lo : 1;
+                string chunk = drawText.Substring(0, take);
+
+                Debug.WriteLine($"[TextRenderer.DrawText] SPLITTING TEXT - Chunk=\"{chunk}\", ChunkLen={take}, RemainingAfter={drawText.Length - take}");
+                
+                // draw that chunk (noWrap true)
+                DrawText(chunk, textFont, padding, ref state, highlightWords, noWrap: true);
+
+                Debug.WriteLine($"[TextRenderer.DrawText] AFTER CHUNK DRAW - Pos=({state.DrawPosition.X},{state.DrawPosition.Y})");
+                
+                // advance to remainder and continue loop
+                drawText = drawText.Substring(take);
             }
-
-            // Draw outline if enabled
-            if (_options.Outline)
-            {
-                DrawTextOutline(drawText, textFont, state, isRtl);
-            }
-
-            // Draw the text
-            DrawTextContent(drawText, textFont, state, isRtl);
-
-            // Advance position
-            state.DrawPosition.X += totalWidth;
         }
-        
+
+
+
         /// <summary>
         /// Measures the width of text for layout purposes
         /// </summary>
