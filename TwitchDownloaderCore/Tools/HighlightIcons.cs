@@ -367,7 +367,7 @@ namespace TwitchDownloaderCore.Tools
             customMessageComment.message.fragments.RemoveAt(0);
             return (streakMessageComment, customMessageComment);
         }
-#region ImplementIDisposable
+        #region ImplementIDisposable
 
         public void Dispose()
         {
@@ -404,6 +404,6 @@ namespace TwitchDownloaderCore.Tools
             }
         }
 
-#endregion
+        #endregion
     }
 }

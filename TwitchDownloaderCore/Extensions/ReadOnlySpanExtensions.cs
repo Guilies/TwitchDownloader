@@ -42,26 +42,26 @@ namespace TwitchDownloaderCore.Extensions
                         break;
                     case '\'':
                     case '\"':
-                    {
-                        i = FindCloseQuoteChar(destination, i, lastIndex, readChar);
-
-                        if (i == -1)
                         {
-                            // The rest of the string is escaped
-                            return true;
-                        }
+                            i = FindCloseQuoteChar(destination, i, lastIndex, readChar);
 
-                        break;
-                    }
+                            if (i == -1)
+                            {
+                                // The rest of the string is escaped
+                                return true;
+                            }
+
+                            break;
+                        }
                     default:
-                    {
-                        if (readChar == oldChar)
                         {
-                            destination[i] = newChar;
-                        }
+                            if (readChar == oldChar)
+                            {
+                                destination[i] = newChar;
+                            }
 
-                        break;
-                    }
+                            break;
+                        }
                 }
             }
 
@@ -117,28 +117,28 @@ namespace TwitchDownloaderCore.Extensions
                         break;
                     case '\'':
                     case '\"':
-                    {
-                        var closeQuoteMark = FindCloseQuoteChar(str, i, length, readChar);
-
-                        if (closeQuoteMark == -1)
                         {
-                            // The rest of the string is escaped
-                            return -1;
+                            var closeQuoteMark = FindCloseQuoteChar(str, i, length, readChar);
+
+                            if (closeQuoteMark == -1)
+                            {
+                                // The rest of the string is escaped
+                                return -1;
+                            }
+
+                            i = closeQuoteMark;
+
+                            break;
                         }
-
-                        i = closeQuoteMark;
-
-                        break;
-                    }
                     default:
-                    {
-                        if (readChar == character)
                         {
-                            return i;
-                        }
+                            if (readChar == character)
+                            {
+                                return i;
+                            }
 
-                        break;
-                    }
+                            break;
+                        }
                 }
             }
 
@@ -172,28 +172,28 @@ namespace TwitchDownloaderCore.Extensions
                         break;
                     case '\'':
                     case '\"':
-                    {
-                        var closeQuoteMark = FindCloseQuoteChar(str, i, length, readChar);
-
-                        if (closeQuoteMark == -1)
                         {
-                            // The rest of the string is escaped
-                            return -1;
+                            var closeQuoteMark = FindCloseQuoteChar(str, i, length, readChar);
+
+                            if (closeQuoteMark == -1)
+                            {
+                                // The rest of the string is escaped
+                                return -1;
+                            }
+
+                            i = closeQuoteMark;
+
+                            break;
                         }
-
-                        i = closeQuoteMark;
-
-                        break;
-                    }
                     default:
-                    {
-                        if (characters.Contains(readChar))
                         {
-                            return i;
-                        }
+                            if (characters.Contains(readChar))
+                            {
+                                return i;
+                            }
 
-                        break;
-                    }
+                            break;
+                        }
                 }
             }
 

@@ -204,7 +204,7 @@ namespace TwitchDownloaderCore
             {
                 RequestUri = new Uri("https://gql.twitch.tv/gql"),
                 Method = HttpMethod.Post,
-                Content = new StringContent("{\"query\":\"query{user(login:\\\"" + channelName + "\\\"){clips(first: " + limit + (cursor == "" ? "" : ", after: \\\"" + cursor + "\\\"") +", criteria: { period: " + period + " }) {  edges { cursor, node { id, slug, title, createdAt, curator, { id, displayName }, durationSeconds, thumbnailURL, viewCount, game { id, displayName } } }, pageInfo { hasNextPage, hasPreviousPage } }}}\",\"variables\":{}}", Encoding.UTF8, "application/json")
+                Content = new StringContent("{\"query\":\"query{user(login:\\\"" + channelName + "\\\"){clips(first: " + limit + (cursor == "" ? "" : ", after: \\\"" + cursor + "\\\"") + ", criteria: { period: " + period + " }) {  edges { cursor, node { id, slug, title, createdAt, curator, { id, displayName }, durationSeconds, thumbnailURL, viewCount, game { id, displayName } } }, pageInfo { hasNextPage, hasPreviousPage } }}}\",\"variables\":{}}", Encoding.UTF8, "application/json")
             };
             request.Headers.Add("Client-ID", "kd1unb4b3q4t58fwlpcbzcbnm76a8fp");
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
@@ -216,7 +216,12 @@ namespace TwitchDownloaderCore
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            EmoteResponse emoteResponse = new();
+            EmoteResponse emoteResponse = new()
+            {
+                BTTV = new List<EmoteResponseItem>(),
+                FFZ = new List<EmoteResponseItem>(),
+                STV = new List<EmoteResponseItem>()
+            };
 
             if (getBttv)
             {
@@ -523,10 +528,10 @@ namespace TwitchDownloaderCore
                 else
                 {
                     emoteResponseQuery = from emote in emoteResponse
-                        where !emotes.ContainsKey(emote.Code)
-                        let regex = new Regex($@"(?<=^|\s){Regex.Escape(emote.Code)}(?=$|\s)")
-                        where comments.Any(comment => regex.IsMatch(comment.message.body))
-                        select emote;
+                                         where !emotes.ContainsKey(emote.Code)
+                                         let regex = new Regex($@"(?<=^|\s){Regex.Escape(emote.Code)}(?=$|\s)")
+                                         where comments.Any(comment => regex.IsMatch(comment.message.body))
+                                         select emote;
                 }
 
                 foreach (var emote in emoteResponseQuery)
@@ -959,12 +964,12 @@ namespace TwitchDownloaderCore
                     string templateURL = cheerGroup.templateURL;
 
                     var cheerNodesQuery = from node in cheerGroup.nodes
-                        where !bits.ContainsKey(node.prefix)
-                        let regex = new Regex($@"(?<=^|\s){Regex.Escape(node.prefix)}(?=[1-9])")
-                        where comments
-                            .Where(comment => comment.message.bits_spent > 0)
-                            .Any(comment => regex.IsMatch(comment.message.body))
-                        select node;
+                                          where !bits.ContainsKey(node.prefix)
+                                          let regex = new Regex($@"(?<=^|\s){Regex.Escape(node.prefix)}(?=[1-9])")
+                                          where comments
+                                              .Where(comment => comment.message.bits_spent > 0)
+                                              .Any(comment => regex.IsMatch(comment.message.body))
+                                          select node;
 
                     foreach (CheerNode node in cheerNodesQuery)
                     {
@@ -1184,10 +1189,10 @@ namespace TwitchDownloaderCore
             var allCacheDirectories = Directory.GetDirectories(cacheFolder);
 
             var oldVideoCaches = (from directory in allCacheDirectories
-                    where videoFolderRegex.IsMatch(directory)
-                    let directoryInfo = new DirectoryInfo(directory)
-                    where DateTime.UtcNow.Ticks - directoryInfo.LastWriteTimeUtc.Ticks > TimeSpan.TicksPerDay * 7
-                    select directoryInfo)
+                                  where videoFolderRegex.IsMatch(directory)
+                                  let directoryInfo = new DirectoryInfo(directory)
+                                  where DateTime.UtcNow.Ticks - directoryInfo.LastWriteTimeUtc.Ticks > TimeSpan.TicksPerDay * 7
+                                  select directoryInfo)
                 .ToArray();
 
             if (oldVideoCaches.Length == 0)

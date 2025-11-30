@@ -211,7 +211,7 @@ namespace TwitchDownloaderCore.TwitchObjects
         public string game { get; set; }
         public List<VideoChapter> chapters { get; set; } = new();
 
-#region DeprecatedProperties
+        #region DeprecatedProperties
         [Obsolete("Used only by chats from before 8d521f7a78222bec187b56c3c747909d240add21.")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string duration { get; set; } = null;
@@ -221,7 +221,7 @@ namespace TwitchDownloaderCore.TwitchObjects
         [Obsolete("Used only by chats from before 8d521f7a78222bec187b56c3c747909d240add21.")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string user_name { get; set; } = null;
-#endregion
+        #endregion
     }
 
     [DebuggerDisplay("{name}")]

@@ -106,16 +106,16 @@ namespace TwitchDownloaderCore.Tools
                         // If the current char is a quote we can skip the next quote, if it exists
                         case '\'':
                         case '\"':
-                        {
-                            i = FindCloseQuoteChar(format, i, formatLength, readChar);
-
-                            if (i == -1)
                             {
-                                throw new FormatException($"Invalid character escaping in the format string: {format}");
-                            }
+                                i = FindCloseQuoteChar(format, i, formatLength, readChar);
 
-                            continue;
-                        }
+                                if (i == -1)
+                                {
+                                    throw new FormatException($"Invalid character escaping in the format string: {format}");
+                                }
+
+                                continue;
+                            }
                     }
                 }
             }

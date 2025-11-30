@@ -50,7 +50,7 @@ namespace TwitchDownloaderCore.TwitchObjects
             }
         }
 
-#region ImplementIDisposable
+        #region ImplementIDisposable
 
         public void Dispose()
         {
@@ -80,6 +80,6 @@ namespace TwitchDownloaderCore.TwitchObjects
             }
         }
 
-#endregion
+        #endregion
     }
 }
