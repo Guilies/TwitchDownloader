@@ -339,3 +339,6 @@ ASALocalRun/
 # BeatPulse healthcheck temp database
 healthchecksdb
 /TwitchDownloaderCore/info.txt
+/TwitchDownloaderCore/ChatRender/OPTIMIZATION_PLAN.md
+/TwitchDownloaderCore/ChatRender/PHASE1_IMPLEMENTATION.md
+/TwitchDownloaderCore/ChatRender/Pipeline.txt

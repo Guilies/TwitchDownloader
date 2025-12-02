@@ -148,11 +148,16 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 }
 
                 // binary-search the largest prefix that fits into remainingWidth
+                // OPTIMIZATION: Use span to avoid string allocations during search
                 int lo = 0, hi = drawText.Length;
+                ReadOnlySpan<char> drawTextSpan = drawText.AsSpan();
+                
                 while (lo < hi)
                 {
                     int mid = (lo + hi + 1) >> 1;
-                    var prefix = drawText.AsSpan(0, mid).ToString();
+                    ReadOnlySpan<char> prefix = drawTextSpan.Slice(0, mid);
+                    
+                    // Measure directly from span without ToString() - uses measurement cache
                     if (TextUtilities.MeasureText(prefix, textFont, isRtl) + spacing <= remainingWidth)
                         lo = mid;
                     else

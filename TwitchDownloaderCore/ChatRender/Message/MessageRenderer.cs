@@ -227,42 +227,49 @@ namespace TwitchDownloaderCore.ChatRender.Message
             }
 
             var enumerator = StringInfo.GetTextElementEnumerator(fragmentString);
-            var nonEmojiBuffer = new StringBuilder();
+            var nonEmojiBuffer = ObjectPool.RentStringBuilder();
 
-            while (enumerator.MoveNext())
+            try
             {
-                var textElement = enumerator.GetTextElement();
-
-                // ASCII characters are not emojis
-                if (textElement.Length == 1 && char.IsAscii(textElement[0]))
+                while (enumerator.MoveNext())
                 {
-                    nonEmojiBuffer.Append(textElement);
-                    continue;
+                    var textElement = enumerator.GetTextElement();
+
+                    // ASCII characters are not emojis
+                    if (textElement.Length == 1 && char.IsAscii(textElement[0]))
+                    {
+                        nonEmojiBuffer.Append(textElement);
+                        continue;
+                    }
+
+                    // Try to find matching emoji
+                    var matchedEmoji = FindMatchingEmoji(textElement);
+                    if (matchedEmoji == null)
+                    {
+                        nonEmojiBuffer.Append(textElement);
+                        continue;
+                    }
+
+                    // Flush any buffered non-emoji text
+                    if (nonEmojiBuffer.Length > 0)
+                    {
+                        DrawFragmentPart(ref state, emotePositionList, bitsCount, nonEmojiBuffer.ToString(), highlightWords, skipThird: true, skipEmoji: true);
+                        nonEmojiBuffer.Clear();
+                    }
+
+                    // Draw the emoji
+                    DrawSingleEmoji(ref state, matchedEmoji.Value, highlightWords);
                 }
 
-                // Try to find matching emoji
-                var matchedEmoji = FindMatchingEmoji(textElement);
-                if (matchedEmoji == null)
-                {
-                    nonEmojiBuffer.Append(textElement);
-                    continue;
-                }
-
-                // Flush any buffered non-emoji text
+                // Flush remaining buffered text
                 if (nonEmojiBuffer.Length > 0)
                 {
                     DrawFragmentPart(ref state, emotePositionList, bitsCount, nonEmojiBuffer.ToString(), highlightWords, skipThird: true, skipEmoji: true);
-                    nonEmojiBuffer.Clear();
                 }
-
-                // Draw the emoji
-                DrawSingleEmoji(ref state, matchedEmoji.Value, highlightWords);
             }
-
-            // Flush remaining buffered text
-            if (nonEmojiBuffer.Length > 0)
+            finally
             {
-                DrawFragmentPart(ref state, emotePositionList, bitsCount, nonEmojiBuffer.ToString(), highlightWords, skipThird: true, skipEmoji: true);
+                ObjectPool.ReturnStringBuilder(nonEmojiBuffer);
             }
         }
 
@@ -371,70 +378,78 @@ namespace TwitchDownloaderCore.ChatRender.Message
             }
 
             // Process character by character, switching fonts as needed
-            var inFontBuffer = new StringBuilder();
-            var nonFontBuffer = new StringBuilder();
+            var inFontBuffer = ObjectPool.RentStringBuilder();
+            var nonFontBuffer = ObjectPool.RentStringBuilder();
 
-            for (int j = 0; j < fragmentSpan.Length; j++)
+            try
             {
-                // Handle surrogate pairs
-                if (char.IsHighSurrogate(fragmentSpan[j]) && j + 1 < fragmentSpan.Length && char.IsLowSurrogate(fragmentSpan[j + 1]))
+                for (int j = 0; j < fragmentSpan.Length; j++)
                 {
-                    FlushBuffers(ref state, inFontBuffer, nonFontBuffer, highlightWords, padding: false);
-
-                    int utf32Char = char.ConvertToUtf32(fragmentSpan[j], fragmentSpan[j + 1]);
-
-                    // Don't attempt to draw U+E0000
-                    if (utf32Char != 0xE0000)
+                    // Handle surrogate pairs
+                    if (char.IsHighSurrogate(fragmentSpan[j]) && j + 1 < fragmentSpan.Length && char.IsLowSurrogate(fragmentSpan[j + 1]))
                     {
-                        using var font = _fontCache.GetFallbackFont(utf32Char).Clone();
-                        font.Color = _options.MessageColor;
-                        
-                        // Check wrap before drawing
-                        int charWidth = _textRenderer.MeasureTextWidth(fragmentSpan.Slice(j, 2).ToString(), font, false);
-                        _checkAndWrapCallback(ref state, charWidth);
-                        
-                        _textRenderer.DrawText(fragmentSpan.Slice(j, 2).ToString(), font, false, ref state, highlightWords);
-                    }
+                        FlushBuffers(ref state, inFontBuffer, nonFontBuffer, highlightWords, padding: false);
 
-                    j++; // Skip the low surrogate
-                }
-                // Check if character is in message font
-                else if (!_fontCache.MessageFont.ContainsGlyphs(fragmentSpan.Slice(j, 1)) ||
-                         new StringInfo(fragmentSpan[j].ToString()).LengthInTextElements == 0)
-                {
-                    // Character not in font - buffer it for fallback font
-                    if (inFontBuffer.Length > 0)
-                    {
-                        // Check wrap before drawing buffered text
-                        int textWidth = _textRenderer.MeasureTextWidth(inFontBuffer.ToString(), _fontCache.MessageFont, false);
-                        _checkAndWrapCallback(ref state, textWidth);
-                        
-                        _textRenderer.DrawText(inFontBuffer.ToString(), _fontCache.MessageFont, false, ref state, highlightWords);
-                        inFontBuffer.Clear();
+                        int utf32Char = char.ConvertToUtf32(fragmentSpan[j], fragmentSpan[j + 1]);
+
+                        // Don't attempt to draw U+E0000
+                        if (utf32Char != 0xE0000)
+                        {
+                            using var font = _fontCache.GetFallbackFont(utf32Char).Clone();
+                            font.Color = _options.MessageColor;
+                            
+                            // Check wrap before drawing
+                            int charWidth = _textRenderer.MeasureTextWidth(fragmentSpan.Slice(j, 2).ToString(), font, false);
+                            _checkAndWrapCallback(ref state, charWidth);
+                            
+                            _textRenderer.DrawText(fragmentSpan.Slice(j, 2).ToString(), font, false, ref state, highlightWords);
+                        }
+
+                        j++; // Skip the low surrogate
                     }
-                    nonFontBuffer.Append(fragmentSpan[j]);
-                }
-                else
-                {
-                    // Character is in font - buffer it for message font
-                    if (nonFontBuffer.Length > 0)
+                    // Check if character is in message font
+                    else if (!_fontCache.MessageFont.ContainsGlyphs(fragmentSpan.Slice(j, 1)) ||
+                             new StringInfo(fragmentSpan[j].ToString()).LengthInTextElements == 0)
                     {
-                        using var font = _fontCache.GetFallbackFont(nonFontBuffer[0]).Clone();
-                        font.Color = _options.MessageColor;
-                        
-                        // Check wrap before drawing buffered text
-                        int textWidth = _textRenderer.MeasureTextWidth(nonFontBuffer.ToString(), font, false);
-                        _checkAndWrapCallback(ref state, textWidth);
-                        
-                        _textRenderer.DrawText(nonFontBuffer.ToString(), font, false, ref state, highlightWords);
-                        nonFontBuffer.Clear();
+                        // Character not in font - buffer it for fallback font
+                        if (inFontBuffer.Length > 0)
+                        {
+                            // Check wrap before drawing buffered text
+                            int textWidth = _textRenderer.MeasureTextWidth(inFontBuffer.ToString(), _fontCache.MessageFont, false);
+                            _checkAndWrapCallback(ref state, textWidth);
+                            
+                            _textRenderer.DrawText(inFontBuffer.ToString(), _fontCache.MessageFont, false, ref state, highlightWords);
+                            inFontBuffer.Clear();
+                        }
+                        nonFontBuffer.Append(fragmentSpan[j]);
                     }
-                    inFontBuffer.Append(fragmentSpan[j]);
+                    else
+                    {
+                        // Character is in font - buffer it for message font
+                        if (nonFontBuffer.Length > 0)
+                        {
+                            using var font = _fontCache.GetFallbackFont(nonFontBuffer[0]).Clone();
+                            font.Color = _options.MessageColor;
+                            
+                            // Check wrap before drawing buffered text
+                            int textWidth = _textRenderer.MeasureTextWidth(nonFontBuffer.ToString(), font, false);
+                            _checkAndWrapCallback(ref state, textWidth);
+                            
+                            _textRenderer.DrawText(nonFontBuffer.ToString(), font, false, ref state, highlightWords);
+                            nonFontBuffer.Clear();
+                        }
+                        inFontBuffer.Append(fragmentSpan[j]);
+                    }
                 }
+
+                // Flush remaining buffers with padding
+                FlushBuffers(ref state, inFontBuffer, nonFontBuffer, highlightWords, padding: true);
             }
-
-            // Flush remaining buffers with padding
-            FlushBuffers(ref state, inFontBuffer, nonFontBuffer, highlightWords, padding: true);
+            finally
+            {
+                ObjectPool.ReturnStringBuilder(inFontBuffer);
+                ObjectPool.ReturnStringBuilder(nonFontBuffer);
+            }
         }
 
         /// <summary>

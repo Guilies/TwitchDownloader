@@ -3,6 +3,7 @@ using SkiaSharp.HarfBuzz;
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using TwitchDownloaderCore.ChatRender.Caching;
 using TwitchDownloaderCore.Extensions;
 
 namespace TwitchDownloaderCore.ChatRender.Utilities
@@ -11,18 +12,45 @@ namespace TwitchDownloaderCore.ChatRender.Utilities
     {
         public static readonly Regex RtlRegex = new("[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]", RegexOptions.Compiled);
 
+        // Global text measurement cache - thread-safe
+        private static readonly TextMeasurementCache _measurementCache = new();
+
         public static float MeasureText(ReadOnlySpan<char> text, SKPaint textFont, bool? isRtl, SKShaper shaper = null)
         {
             isRtl ??= IsRightToLeft(text);
 
-            if (isRtl == false)
+            // Use cached measurement for non-RTL text (most common case)
+            if (isRtl == false && shaper == null)
             {
-                return textFont.MeasureText(text);
+                return _measurementCache.GetOrMeasure(text, textFont, textFont.TextSize, false);
             }
 
+            // RTL text or custom shaper - perform direct measurement
             if (shaper == null)
             {
                 return MeasureRtlText(text, textFont);
+            }
+
+            return MeasureRtlText(text, textFont, shaper);
+        }
+
+        /// <summary>
+        /// Measures text width with caching support (string overload for better cache performance)
+        /// </summary>
+        public static float MeasureText(string text, SKPaint textFont, bool? isRtl, SKShaper shaper = null)
+        {
+            isRtl ??= IsRightToLeft(text);
+
+            // Use cached measurement when possible
+            if (shaper == null)
+            {
+                return _measurementCache.GetOrMeasure(text, textFont, textFont.TextSize, isRtl.Value);
+            }
+
+            // Custom shaper - perform direct measurement
+            if (isRtl == false)
+            {
+                return textFont.MeasureText(text);
             }
 
             return MeasureRtlText(text, textFont, shaper);
