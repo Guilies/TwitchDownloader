@@ -196,12 +196,12 @@ namespace TwitchDownloaderCore.ChatRender.Processing
         private async Task<Dictionary<string, SKBitmap>> GetScaledAvatars(ChatRoot chatRoot, CancellationToken cancellationToken)
         {
             var avatars = await TwitchHelper.GetAvatars(
-             chatRoot.comments,
-           _defaultAvatarUrls,
-            _cacheDir,
-           _progress,
-         _options.Offline,
-             cancellationToken);
+                chatRoot.comments,
+                _defaultAvatarUrls,
+                _cacheDir,
+                _progress,
+                _options.Offline,
+            cancellationToken);
 
             var newHeight = (int)Math.Round(36 * _options.ReferenceScale * _options.AvatarScale);
 

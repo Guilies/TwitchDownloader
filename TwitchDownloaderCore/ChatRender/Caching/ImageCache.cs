@@ -30,11 +30,11 @@ namespace TwitchDownloaderCore.ChatRender.Caching
         }
 
         public void Initialize(
-             List<ChatBadge> badges,
-                 List<TwitchEmote> emotes,
-          List<TwitchEmote> thirdPartyEmotes,
-         List<CheerEmote> cheermotes,
-        Dictionary<string, SKBitmap> emojis,
+            List<ChatBadge> badges,
+            List<TwitchEmote> emotes,
+            List<TwitchEmote> thirdPartyEmotes,
+            List<CheerEmote> cheermotes,
+            Dictionary<string, SKBitmap> emojis,
             Dictionary<string, SKBitmap> avatars)
         {
             Badges = badges;

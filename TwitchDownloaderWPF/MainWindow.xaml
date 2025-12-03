@@ -24,6 +24,7 @@
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="5"/>
         </Grid.ColumnDefinitions>
         <Button x:Name="btnVodDownload" Margin="4" Grid.Row="1" Grid.Column="1" MinWidth="122" Height="52" Click="btnVodDownload_Click" FontWeight="Bold" Padding="3,0,3,0" Background="{DynamicResource BigButtonBackground}" Foreground="{DynamicResource BigButtonText}" BorderBrush="{DynamicResource BigButtonBorder}" >
@@ -41,9 +42,12 @@
         <Button x:Name="btnChatRender" Margin="4" Grid.Row="1" Grid.Column="5" MinWidth="122" Height="52" Click="btnChatRender_Click" FontWeight="Bold" Padding="3,0,3,0" Background="{DynamicResource BigButtonBackground}" Foreground="{DynamicResource BigButtonText}" BorderBrush="{DynamicResource BigButtonBorder}" >
             <TextBlock Text="{lex:Loc ChatRender}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="{Binding ActualWidth, ElementName=btnChatRender, Mode=OneWay}" Padding="3,0,3,0" />
         </Button>
-        <Button x:Name="btnQueue" Margin="4" Grid.Row="1" Grid.Column="6" MinWidth="122" Height="52" Click="btnQueue_Click" FontWeight="Bold" Padding="3,0,3,0" Background="{DynamicResource BigButtonBackground}" Foreground="{DynamicResource BigButtonText}" BorderBrush="{DynamicResource BigButtonBorder}" >
+        <Button x:Name="btnQueue" Margin="4" Grid.Row="1" Grid.Column="7" MinWidth="122" Height="52" Click="btnQueue_Click" FontWeight="Bold" Padding="3,0,3,0" Background="{DynamicResource BigButtonBackground}" Foreground="{DynamicResource BigButtonText}" BorderBrush="{DynamicResource BigButtonBorder}" >
             <TextBlock Text="{lex:Loc TaskQueue}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="{Binding ActualWidth, ElementName=btnQueue, Mode=OneWay}" Padding="3,0,3,0" />
         </Button>
-        <Frame Focusable="False" x:Name="Main" Grid.Column="0" Grid.ColumnSpan="8" Grid.Row="2" NavigationUIVisibility="Hidden" Navigated="Main_OnNavigated" Background="{DynamicResource AppBackground}" BorderBrush="{DynamicResource AppBackground}"/>
+        <Button x:Name="btnCombinedRender" Margin="4" Grid.Row="1" Grid.Column="6" MinWidth="122" Height="52" Click="btnCombinedRender_Click" FontWeight="Bold" Padding="3,0,3,0" Background="{DynamicResource BigButtonBackground}" Foreground="{DynamicResource BigButtonText}" BorderBrush="{DynamicResource BigButtonBorder}" >
+            <TextBlock Text="Combined&#x0a;Render" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="{Binding ActualWidth, ElementName=btnCombinedRender, Mode=OneWay}" Padding="3,0,3,0" />
+        </Button>
+        <Frame Focusable="False" x:Name="Main" Grid.Column="0" Grid.ColumnSpan="9" Grid.Row="2" NavigationUIVisibility="Hidden" Navigated="Main_OnNavigated" Background="{DynamicResource AppBackground}" BorderBrush="{DynamicResource AppBackground}"/>
     </Grid>
 </Window>

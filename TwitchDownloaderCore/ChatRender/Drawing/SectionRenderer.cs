@@ -200,7 +200,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
 
             stopwatch.Stop();
             _progress.ReportProgress(100, stopwatch.Elapsed, TimeSpan.Zero);
-            _progress.LogInfo($"FINISHED. RENDER TIME: {stopwatch.Elapsed.TotalSeconds:F1}s SPEED: {(endTick - startTick) / (double)_options.Framerate / stopwatch.Elapsed.TotalSeconds:F2}x");
+            // _progress.LogInfo($"FINISHED. RENDER TIME: {stopwatch.Elapsed.TotalSeconds:F1}s SPEED: {(endTick - startTick) / (double)_options.Framerate / stopwatch.Elapsed.TotalSeconds:F2}x");
 
             latestUpdate?.Image.Dispose();
 
@@ -296,7 +296,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
 
         private CommentSection GenerateCommentSection(int commentIndex, int sectionDefaultYPos)
         {
-            Debug.WriteLine($"\n========== [SectionRenderer.GenerateCommentSection] START - CommentIndex={commentIndex} ==========");
+            // Debug.WriteLine($"\n========== [SectionRenderer.GenerateCommentSection] START - CommentIndex={commentIndex} ==========");
             
             CommentSection newSection = new CommentSection();
             List<(Point, TwitchEmote)> emoteSectionList = new List<(Point, TwitchEmote)>();
@@ -309,7 +309,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 DefaultPosition = new Point { X = _options.SidePadding }
             };
             
-            Debug.WriteLine($"[SectionRenderer.GenerateCommentSection] Initial state - SidePadding={_options.SidePadding}, SectionHeight={_options.SectionHeight}");
+            // Debug.WriteLine($"[SectionRenderer.GenerateCommentSection] Initial state - SidePadding={_options.SidePadding}, SectionHeight={_options.SectionHeight}");
 
             var highlightType = HighlightType.Unknown;
 
@@ -347,7 +347,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             state.MaxWidth = _options.ChatWidth - _options.SidePadding;
             state.CurrentLineHeight = 0;
             
-            Debug.WriteLine($"[SectionRenderer.GenerateCommentSection] Layout initialized - LineStartX={state.LineStartX}, MaxWidth={state.MaxWidth}, BaselineY={sectionDefaultYPos}");
+            // Debug.WriteLine($"[SectionRenderer.GenerateCommentSection] Layout initialized - LineStartX={state.LineStartX}, MaxWidth={state.MaxWidth}, BaselineY={sectionDefaultYPos}");
 
             if (highlightType is HighlightType.Unknown)
             {
@@ -373,8 +373,8 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             newSection.Emotes = emoteSectionList;
             newSection.CommentIndex = commentIndex;
 
-            Debug.WriteLine($"[SectionRenderer.GenerateCommentSection] COMPLETED - FinalSections={state.SectionImages.Count}, FinalHeight={finalBitmap.Height}, EmoteCount={emoteSectionList.Count}");
-            Debug.WriteLine($"========== [SectionRenderer.GenerateCommentSection] END - CommentIndex={commentIndex} ==========\n");
+            // Debug.WriteLine($"[SectionRenderer.GenerateCommentSection] COMPLETED - FinalSections={state.SectionImages.Count}, FinalHeight={finalBitmap.Height}, EmoteCount={emoteSectionList.Count}");
+            // Debug.WriteLine($"========== [SectionRenderer.GenerateCommentSection] END - CommentIndex={commentIndex} ==========\n");
             
             return newSection;
         }
@@ -465,7 +465,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
         /// </summary>
         public void AddImageSection(ref RenderContext.DrawingState state, Point defaultPos)
         {
-            Debug.WriteLine($"[SectionRenderer.AddImageSection] Creating NEW SECTION. DefaultPos=({defaultPos.X},{defaultPos.Y}), PreviousSectionCount={state.SectionImages.Count}");
+            // Debug.WriteLine($"[SectionRenderer.AddImageSection] Creating NEW SECTION. DefaultPos=({defaultPos.X},{defaultPos.Y}), PreviousSectionCount={state.SectionImages.Count}");
             
             state.DrawPosition.X = defaultPos.X;
             state.DrawPosition.Y = defaultPos.Y;
@@ -490,7 +490,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             state.MaxWidth = _options.ChatWidth - _options.SidePadding; // Right edge X coordinate
             state.CurrentLineHeight = 0;
             
-            Debug.WriteLine($"[SectionRenderer.AddImageSection] Section created. NewSectionCount={state.SectionImages.Count}, LineStartX={state.LineStartX}, MaxWidth={state.MaxWidth}, Pos=({state.DrawPosition.X},{state.DrawPosition.Y})");
+            // Debug.WriteLine($"[SectionRenderer.AddImageSection] Section created. NewSectionCount={state.SectionImages.Count}, LineStartX={state.LineStartX}, MaxWidth={state.MaxWidth}, Pos=({state.DrawPosition.X},{state.DrawPosition.Y})");
         }
 
         /// <summary>
@@ -500,22 +500,22 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
         /// <returns>True if wrapped to new section</returns>
         public bool CheckAndWrapIfNeeded(ref RenderContext.DrawingState state, int elementWidth)
         {
-            Debug.WriteLine($"[SectionRenderer.CheckAndWrapIfNeeded] ElementWidth={elementWidth}, CurrentPos=({state.DrawPosition.X},{state.DrawPosition.Y}), MaxWidth={state.MaxWidth}");
+            // Debug.WriteLine($"[SectionRenderer.CheckAndWrapIfNeeded] ElementWidth={elementWidth}, CurrentPos=({state.DrawPosition.X},{state.DrawPosition.Y}), MaxWidth={state.MaxWidth}");
             
             // Right edge is stored in state.MaxWidth
             if (state.DrawPosition.X + elementWidth > state.MaxWidth)
             {
-                Debug.WriteLine($"[SectionRenderer.CheckAndWrapIfNeeded] WRAPPING - Element exceeds width. WouldBe={(state.DrawPosition.X + elementWidth)}, Max={state.MaxWidth}");
+                // Debug.WriteLine($"[SectionRenderer.CheckAndWrapIfNeeded] WRAPPING - Element exceeds width. WouldBe={(state.DrawPosition.X + elementWidth)}, Max={state.MaxWidth}");
                 
                 // Wrap to new line - start at left margin (LineStartX), not where username ends
                 var wrapPosition = new Point { X = state.LineStartX, Y = state.DefaultPosition.Y };
                 AddImageSection(ref state, wrapPosition);
                 
-                Debug.WriteLine($"[SectionRenderer.CheckAndWrapIfNeeded] Wrapped to new section. NewPos=({state.DrawPosition.X},{state.DrawPosition.Y})");
+                // Debug.WriteLine($"[SectionRenderer.CheckAndWrapIfNeeded] Wrapped to new section. NewPos=({state.DrawPosition.X},{state.DrawPosition.Y})");
                 return true;
             }
             
-            Debug.WriteLine($"[SectionRenderer.CheckAndWrapIfNeeded] NO WRAP NEEDED - Element fits");
+            // Debug.WriteLine($"[SectionRenderer.CheckAndWrapIfNeeded] NO WRAP NEEDED - Element fits");
             return false;
         }
 

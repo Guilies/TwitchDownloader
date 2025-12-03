@@ -29,6 +29,7 @@ namespace TwitchDownloaderWPF
         public static PageChatDownload pageChatDownload = new PageChatDownload();
         public static PageChatUpdate pageChatUpdate = new PageChatUpdate();
         public static PageChatRender pageChatRender = new PageChatRender();
+        public static PageCombinedRender pageCombinedRender = new PageCombinedRender();
         public static PageQueue pageQueue = new PageQueue();
 
         public MainWindow()
@@ -64,6 +65,11 @@ namespace TwitchDownloaderWPF
         private void btnQueue_Click(object sender, RoutedEventArgs e)
         {
             Main.Content = pageQueue;
+        }
+
+        private void btnCombinedRender_Click(object sender, RoutedEventArgs e)
+        {
+            Main.Content = pageCombinedRender;
         }
 
         private void Window_OnSourceInitialized(object sender, EventArgs e)
@@ -202,6 +208,7 @@ namespace TwitchDownloaderWPF
             ((TextBlock)btnChatDownload.Content).TextDecorations = null;
             ((TextBlock)btnChatUpdate.Content).TextDecorations = null;
             ((TextBlock)btnChatRender.Content).TextDecorations = null;
+            ((TextBlock)btnCombinedRender.Content).TextDecorations = null;
             ((TextBlock)btnQueue.Content).TextDecorations = null;
 
             var newPage = Main.Content;
@@ -224,6 +231,10 @@ namespace TwitchDownloaderWPF
             else if (ReferenceEquals(newPage, pageChatRender))
             {
                 ((TextBlock)btnChatRender.Content).TextDecorations = TextDecorations.Underline;
+            }
+            else if (ReferenceEquals(newPage, pageCombinedRender))
+            {
+                ((TextBlock)btnCombinedRender.Content).TextDecorations = TextDecorations.Underline;
             }
             else if (ReferenceEquals(newPage, pageQueue))
             {

@@ -188,7 +188,8 @@ namespace TwitchDownloaderCore
 
             FfmpegProcess ffmpegProcess = GetFfmpegProcess(outputFileInfo);
             FfmpegProcess maskProcess = renderOptions.GenerateMask ? GetFfmpegProcess(maskFileInfo) : null;
-            _progress.SetTemplateStatus(@"Rendering Video {0}% ({1:h\hm\ms\s} Elapsed | {2:h\hm\ms\s} Remaining)", 0, TimeSpan.Zero, TimeSpan.Zero);
+            // Use simpler format to avoid FormatException with escaped braces in custom TimeSpan format
+            _progress.SetTemplateStatus("Rendering Video {0}% ({1} Elapsed | {2} Remaining)", 0, TimeSpan.Zero, TimeSpan.Zero);
 
             try
             {
@@ -207,7 +208,11 @@ namespace TwitchDownloaderCore
 
         private FfmpegProcess GetFfmpegProcess(FileInfo fileInfo)
         {
+            _progress.LogInfo("[ChatRenderer.GetFfmpegProcess] Starting FFmpeg process creation");
             string savePath = fileInfo.FullName;
+            _progress.LogInfo($"[ChatRenderer.GetFfmpegProcess] SavePath: {savePath}");
+            _progress.LogInfo($"[ChatRenderer.GetFfmpegProcess] InputArgs template: {renderOptions.InputArgs}");
+            _progress.LogInfo($"[ChatRenderer.GetFfmpegProcess] OutputArgs template: {renderOptions.OutputArgs}");
 
             string inputArgs = new StringBuilder(renderOptions.InputArgs)
                 .Replace("{fps}", renderOptions.Framerate.ToString())
@@ -217,6 +222,9 @@ namespace TwitchDownloaderCore
                 .Replace("{max_int}", int.MaxValue.ToString())
                 .Replace("{pix_fmt}", SKImageInfo.PlatformColorType == SKColorType.Bgra8888 ? "bgra" : "rgba")
                 .ToString();
+            
+            _progress.LogInfo("[ChatRenderer.GetFfmpegProcess] InputArgs after replacement: " + inputArgs);
+            
             string outputArgs = new StringBuilder(renderOptions.OutputArgs)
                 .Replace("{fps}", renderOptions.Framerate.ToString())
                 .Replace("{height}", renderOptions.ChatHeight.ToString())
@@ -224,6 +232,9 @@ namespace TwitchDownloaderCore
                 .Replace("{save_path}", savePath)
                 .Replace("{max_int}", int.MaxValue.ToString())
                 .ToString();
+            
+            _progress.LogInfo("[ChatRenderer.GetFfmpegProcess] OutputArgs after replacement: " + outputArgs);
+            _progress.LogInfo("[ChatRenderer.GetFfmpegProcess] Creating FfmpegProcess");
 
             var process = new FfmpegProcess
             {
@@ -248,7 +259,13 @@ namespace TwitchDownloaderCore
                 }
             };
 
-            _progress.LogVerbose($"Running \"{renderOptions.FfmpegPath}\" in \"{process.StartInfo.WorkingDirectory}\" with args: {process.StartInfo.Arguments}");
+            _progress.LogInfo("[ChatRenderer.GetFfmpegProcess] FfmpegProcess created successfully");
+            _progress.LogInfo("[ChatRenderer.GetFfmpegProcess] About to call LogVerbose with FFmpeg command");
+            
+            // Use string concatenation instead of interpolation to avoid string.Format issues with curly braces in arguments
+            _progress.LogVerbose("Running \"" + renderOptions.FfmpegPath + "\" in \"" + process.StartInfo.WorkingDirectory + "\" with args: " + process.StartInfo.Arguments);
+            
+            _progress.LogInfo("[ChatRenderer.GetFfmpegProcess] LogVerbose call completed, starting process");
 
             process.Start();
             process.BeginErrorReadLine();

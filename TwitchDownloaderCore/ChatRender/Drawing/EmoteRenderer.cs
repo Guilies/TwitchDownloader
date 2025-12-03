@@ -87,13 +87,13 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
 
             if (!emote.IsZeroWidth)
             {
-                System.Diagnostics.Debug.WriteLine($"[EmoteRenderer.DrawEmoteCommon] BEFORE WRAP - Emote={emote.Name}, Pos=({state.DrawPosition.X},{state.DrawPosition.Y}), EmoteWidth={emoteInfo.Width}, Spacing={_options.EmoteSpacing}");
+                // System.Diagnostics.Debug.WriteLine($"[EmoteRenderer.DrawEmoteCommon] BEFORE WRAP - Emote={emote.Name}, Pos=({state.DrawPosition.X},{state.DrawPosition.Y}), EmoteWidth={emoteInfo.Width}, Spacing={_options.EmoteSpacing}");
                 
                 // Check wrap before drawing emote
                 int emoteWidth = emoteInfo.Width + _options.EmoteSpacing;
                 bool didWrap = _checkAndWrapCallback(ref state, emoteWidth);
 
-                System.Diagnostics.Debug.WriteLine($"[EmoteRenderer.DrawEmoteCommon] AFTER WRAP - Emote={emote.Name}, DidWrap={didWrap}, NewPos=({state.DrawPosition.X},{state.DrawPosition.Y}), LineStartX={state.LineStartX}");
+                // System.Diagnostics.Debug.WriteLine($"[EmoteRenderer.DrawEmoteCommon] AFTER WRAP - Emote={emote.Name}, DidWrap={didWrap}, NewPos=({state.DrawPosition.X},{state.DrawPosition.Y}), LineStartX={state.LineStartX}");
 
                 // Update line height to accommodate emote
                 state.CurrentLineHeight = Math.Max(state.CurrentLineHeight, emoteInfo.Height);
@@ -120,11 +120,11 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                     Y = CalculateEmoteVerticalPosition(state, emoteInfo.Height) + (state.SectionImages.Count - 1) * _options.SectionHeight
                 };
 
-                System.Diagnostics.Debug.WriteLine($"[EmoteRenderer.DrawEmoteCommon] EMOTE POSITION RECORDED - Emote={emote.Name}, RecordedPos=({emotePoint.X},{emotePoint.Y}), SectionIndex={state.SectionImages.Count - 1}, AdjustedY={emotePoint.Y}");
+                // System.Diagnostics.Debug.WriteLine($"[EmoteRenderer.DrawEmoteCommon] EMOTE POSITION RECORDED - Emote={emote.Name}, RecordedPos=({emotePoint.X},{emotePoint.Y}), SectionIndex={state.SectionImages.Count - 1}, AdjustedY={emotePoint.Y}");
 
                 state.DrawPosition.X += emoteInfo.Width + _options.EmoteSpacing;
                 
-                System.Diagnostics.Debug.WriteLine($"[EmoteRenderer.DrawEmoteCommon] AFTER ADVANCE - Emote={emote.Name}, NextPos=({state.DrawPosition.X},{state.DrawPosition.Y})");
+                // System.Diagnostics.Debug.WriteLine($"[EmoteRenderer.DrawEmoteCommon] AFTER ADVANCE - Emote={emote.Name}, NextPos=({state.DrawPosition.X},{state.DrawPosition.Y})");
             }
             else
             {
@@ -136,7 +136,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                     Y = CalculateEmoteVerticalPosition(state, emoteInfo.Height) + (state.SectionImages.Count - 1) * _options.SectionHeight
                 };
                 
-                System.Diagnostics.Debug.WriteLine($"[EmoteRenderer.DrawEmoteCommon] ZERO-WIDTH EMOTE - Emote={emote.Name}, OverlayPos=({emotePoint.X},{emotePoint.Y}), SectionIndex={state.SectionImages.Count - 1}");
+                // System.Diagnostics.Debug.WriteLine($"[EmoteRenderer.DrawEmoteCommon] ZERO-WIDTH EMOTE - Emote={emote.Name}, OverlayPos=({emotePoint.X},{emotePoint.Y}), SectionIndex={state.SectionImages.Count - 1}");
             }
 
             emotePositionList.Add((emotePoint, emote));

@@ -83,6 +83,9 @@ namespace TwitchDownloaderCore.ChatRender.Message
         {
             state.DrawPosition.X += _options.AccentIndentWidth;
             state.DefaultPosition.X = state.DrawPosition.X;
+            
+            // FIX: Update LineStartX so wrapping uses the correct indented position
+            state.LineStartX = state.DrawPosition.X;
 
             var highlightIcon = _highlightIcons.GetHighlightIcon(highlightType, _fontCache.MessageFont.Color);
 
@@ -142,7 +145,9 @@ namespace TwitchDownloaderCore.ChatRender.Message
             state.DefaultPosition.X = state.DrawPosition.X;
 
             _textRenderer.DrawUsername(comment, ref state, false, Purple, commentIndex);
-            _addImageSectionCallback(ref state, state.DefaultPosition);
+            
+            // Add a space after the username before continuing the message
+            _textRenderer.DrawText(" ", _fontCache.MessageFont, false, ref state, false);
 
             // Remove the commenter's name from the resub message
             comment.message.body = comment.message.body[(comment.commenter.display_name.Length + 1)..];
@@ -187,6 +192,9 @@ namespace TwitchDownloaderCore.ChatRender.Message
             {
                 _textRenderer.DrawUsername(comment, ref state, false, _fontCache.MessageFont.Color);
 
+                // Add a space after the username before continuing the message
+                _textRenderer.DrawText(" ", _fontCache.MessageFont, false, ref state, false);
+
                 var bitsBadgeVersion = comment.message.user_badges.FirstOrDefault(x => x._id == "bits")?.version;
                 if (bitsBadgeVersion is not null)
                 {
@@ -226,7 +234,9 @@ namespace TwitchDownloaderCore.ChatRender.Message
             state.DefaultPosition.X = state.DrawPosition.X;
 
             _textRenderer.DrawUsername(comment, ref state, false, Purple);
-            _addImageSectionCallback(ref state, state.DefaultPosition);
+            
+            // Add a space after the username before continuing the message
+            _textRenderer.DrawText(" ", _fontCache.MessageFont, false, ref state, false);
 
             // Remove the commenter's name from the watch streak message
             comment.message.body = comment.message.body[(comment.commenter.display_name.Length + 1)..];
@@ -269,7 +279,9 @@ namespace TwitchDownloaderCore.ChatRender.Message
             state.DefaultPosition.X = state.DrawPosition.X;
 
             _textRenderer.DrawUsername(comment, ref state, false, Purple);
-            _addImageSectionCallback(ref state, state.DefaultPosition);
+            
+            // Add a space after the username before continuing the message
+            _textRenderer.DrawText(" ", _fontCache.MessageFont, false, ref state, false);
 
             // Remove the commenter's name from the charity donation message
             comment.message.body = comment.message.body[(comment.commenter.display_name.Length + 2)..];

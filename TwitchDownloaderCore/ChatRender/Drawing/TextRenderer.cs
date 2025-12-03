@@ -92,7 +92,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             bool isRtl = TextUtilities.IsRightToLeft(drawText);
             int spacing = padding ? _options.WordSpacing : 0;
 
-            Debug.WriteLine($"[TextRenderer.DrawText] Text=\"{drawText.Substring(0, Math.Min(30, drawText.Length))}{(drawText.Length > 30 ? "..." : "")}\", Pos=({state.DrawPosition.X},{state.DrawPosition.Y}), MaxWidth={state.MaxWidth}, noWrap={noWrap}");
+            // Debug.WriteLine($"[TextRenderer.DrawText] Text=\"{drawText.Substring(0, Math.Min(30, drawText.Length))}{(drawText.Length > 30 ? "..." : "")}\", Pos=({state.DrawPosition.X},{state.DrawPosition.Y}), MaxWidth={state.MaxWidth}, noWrap={noWrap}");
 
             // Calculate remaining width using absolute coordinates (MaxWidth is right-edge X coordinate)
             int remainingWidth = state.MaxWidth - state.DrawPosition.X;
@@ -104,7 +104,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             float measuredWhole = TextUtilities.MeasureText(drawText, textFont, isRtl);
             if (noWrap || measuredWhole + spacing <= remainingWidth)
             {
-                Debug.WriteLine($"[TextRenderer.DrawText] FAST PATH - Text fits. Width={measuredWhole}, Remaining={remainingWidth}");
+                // Debug.WriteLine($"[TextRenderer.DrawText] FAST PATH - Text fits. Width={measuredWhole}, Remaining={remainingWidth}");
                 
                 // Update line height
                 var fontMetrics = textFont.FontMetrics;
@@ -126,7 +126,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 return;
             }
 
-            Debug.WriteLine($"[TextRenderer.DrawText] ENTERING CHUNK LOOP - Text too wide. Measured={measuredWhole}, Remaining={remainingWidth}");
+            // Debug.WriteLine($"[TextRenderer.DrawText] ENTERING CHUNK LOOP - Text too wide. Measured={measuredWhole}, Remaining={remainingWidth}");
             
             // CHUNK LOOP: split into prefixes that fit the *remaining* width at the time of drawing
             while (!string.IsNullOrEmpty(drawText))
@@ -135,13 +135,13 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 if (state.MaxWidth <= 0)
                     remainingWidth = (_options.ChatWidth - _options.SidePadding) - state.DrawPosition.X;
                 
-                Debug.WriteLine($"[TextRenderer.DrawText] CHUNK ITERATION - RemainingText=\"{drawText.Substring(0, Math.Min(20, drawText.Length))}...\", RemainingWidth={remainingWidth}, Pos=({state.DrawPosition.X},{state.DrawPosition.Y})");
+                // Debug.WriteLine($"[TextRenderer.DrawText] CHUNK ITERATION - RemainingText=\"{drawText.Substring(0, Math.Min(20, drawText.Length))}...\", RemainingWidth={remainingWidth}, Pos=({state.DrawPosition.X},{state.DrawPosition.Y})");
 
                 // If the remaining text now fits, draw the rest
                 measuredWhole = TextUtilities.MeasureText(drawText, textFont, isRtl);
                 if (measuredWhole + spacing <= remainingWidth)
                 {
-                    Debug.WriteLine($"[TextRenderer.DrawText] FINAL CHUNK FITS - Drawing remaining text: \"{drawText}\"");
+                    // Debug.WriteLine($"[TextRenderer.DrawText] FINAL CHUNK FITS - Drawing remaining text: \"{drawText}\"");
                     // draw last piece (noWrap true to avoid re-splitting)
                     DrawText(drawText, textFont, padding, ref state, highlightWords, noWrap: true);
                     break;
@@ -167,12 +167,12 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 int take = lo > 0 ? lo : 1;
                 string chunk = drawText.Substring(0, take);
 
-                Debug.WriteLine($"[TextRenderer.DrawText] SPLITTING TEXT - Chunk=\"{chunk}\", ChunkLen={take}, RemainingAfter={drawText.Length - take}");
+                // Debug.WriteLine($"[TextRenderer.DrawText] SPLITTING TEXT - Chunk=\"{chunk}\", ChunkLen={take}, RemainingAfter={drawText.Length - take}");
                 
                 // draw that chunk (noWrap true)
                 DrawText(chunk, textFont, padding, ref state, highlightWords, noWrap: true);
 
-                Debug.WriteLine($"[TextRenderer.DrawText] AFTER CHUNK DRAW - Pos=({state.DrawPosition.X},{state.DrawPosition.Y})");
+                // Debug.WriteLine($"[TextRenderer.DrawText] AFTER CHUNK DRAW - Pos=({state.DrawPosition.X},{state.DrawPosition.Y})");
                 
                 // advance to remainder and continue loop
                 drawText = drawText.Substring(take);
