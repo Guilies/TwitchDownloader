@@ -83,6 +83,16 @@ namespace TwitchDownloaderCore.Options
         public Func<FileInfo, FileInfo> FileCollisionCallback { get; set; } = info => info;
         public Func<DirectoryInfo[], DirectoryInfo[]> CacheCleanerCallback { get; set; } = _ => Array.Empty<DirectoryInfo>();
 
+        /// <summary>
+        /// Frame rate of the source VOD (detected from playlist)
+        /// </summary>
+        public int VodFramerate { get; set; } = 30; // Default to 30 if detection fails
+
+        /// <summary>
+        /// Number of threads for FFmpeg encoding (0 = auto-detect all CPU cores)
+        /// </summary>
+        public int FfmpegThreads { get; set; } = 0; // 0 means use all available cores
+
         // Helper Methods
         private int GetOutputWidth()
         {

@@ -590,5 +590,10 @@ namespace TwitchDownloaderWPF
                 Settings.Default.Save();
             }
         }
+
+        private void comboQuality_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+
+        }
     }
 }

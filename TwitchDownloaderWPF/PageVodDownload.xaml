@@ -75,7 +75,7 @@
             </StackPanel>
             <StackPanel>
                 <TextBlock x:Name="labelLength" Text="0:0:0" Margin="5,0,0,0" Foreground="{DynamicResource AppText}" />
-                <ComboBox x:Name="comboQuality" Margin="5,10,0,0" Background="{DynamicResource AppElementBackground}" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}"/>
+                <ComboBox x:Name="comboQuality" Margin="5,10,0,0" Background="{DynamicResource AppElementBackground}" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}" SelectionChanged="comboQuality_SelectionChanged"/>
                 <StackPanel Margin="5,8,0,0">
                     <StackPanel Orientation="Horizontal">
                         <RadioButton x:Name="RadioTrimSafe" Content="{lex:Loc VideoTrimModeSafe}" Margin="3,0,0,0" Checked="RadioTrimSafe_OnCheckedStateChanged" Unchecked="RadioTrimSafe_OnCheckedStateChanged" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}" />

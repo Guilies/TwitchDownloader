@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using TwitchDownloaderCore.Chat;
+using TwitchDownloaderCore.Extensions;
 using TwitchDownloaderCore.Interfaces;
 using TwitchDownloaderCore.Models;
 using TwitchDownloaderCore.Options;
@@ -268,6 +269,57 @@ namespace TwitchDownloaderCore
             _progress.LogInfo($"VOD: {vodInfo.data.video.title} by {vodInfo.data.video.owner?.displayName}");
             _progress.LogInfo($"Duration: {TimeSpan.FromSeconds(vodInfo.data.video.lengthSeconds)}");
             
+            // Fetch playlist to get frame rate information
+            _progress.LogInfo("Fetching video playlist to determine frame rate");
+            var accessToken = await TwitchHelper.GetVideoToken(_renderOptions.Id, _renderOptions.Oauth);
+            
+            if (accessToken.data.videoPlaybackAccessToken is null)
+            {
+                throw new NullReferenceException("Unable to fetch video access token");
+            }
+            
+            var playlistString = await TwitchHelper.GetVideoPlaylist(
+                _renderOptions.Id,
+                accessToken.data.videoPlaybackAccessToken.value,
+                accessToken.data.videoPlaybackAccessToken.signature);
+            
+            if (playlistString.Contains("vod_manifest_restricted") || playlistString.Contains("unauthorized_entitlements"))
+            {
+                throw new NullReferenceException("Insufficient access to VOD, OAuth may be required.");
+            }
+            
+            var videoPlaylist = M3U8.Parse(playlistString);
+            videoPlaylist.SortStreamsByQuality();
+            
+            // Extract frame rate from the selected quality or highest quality
+            decimal vodFramerate = 30m; // Default fallback
+            var qualities = VideoQualities.FromM3U8(videoPlaylist);
+            
+            // Find the quality that matches the user's selection
+            var selectedQuality = qualities.FirstOrDefault(q => q.Name == _renderOptions.Quality);
+            if (selectedQuality != null && selectedQuality.Framerate > 0)
+            {
+                vodFramerate = selectedQuality.Framerate;
+                _progress.LogInfo($"Using frame rate from selected quality '{_renderOptions.Quality}': {vodFramerate} FPS");
+            }
+            else
+            {
+                // Fallback to source quality
+                var sourceQuality = qualities.FirstOrDefault(q => q.IsSource);
+                if (sourceQuality != null && sourceQuality.Framerate > 0)
+                {
+                    vodFramerate = sourceQuality.Framerate;
+                    _progress.LogInfo($"Using frame rate from source quality: {vodFramerate} FPS");
+                }
+                else
+                {
+                    _progress.LogWarning($"Unable to determine VOD frame rate, using default: {vodFramerate} FPS");
+                }
+            }
+            
+            // Store the framerate for later use
+            _renderOptions.VodFramerate = (int)Math.Round(vodFramerate);
+            
             return vodInfo;
         }
 
@@ -479,12 +531,13 @@ namespace TwitchDownloaderCore
 
         private string BuildFilterComplex()
         {
+            var fps = _renderOptions.VodFramerate;
             var sb = new StringBuilder();
             
-            // Scale VOD to fit remaining width
-            sb.Append($"[0:v]scale={_scalingInfo.ScaledVodWidth}:{_scalingInfo.ScaledVodHeight}:flags=lanczos");
+            // Normalize VOD frame rate FIRST, then scale
+            sb.Append($"[0:v]fps={fps}[vod_fps];");
+            sb.Append($"[vod_fps]scale={_scalingInfo.ScaledVodWidth}:{_scalingInfo.ScaledVodHeight}:flags=lanczos");
             
-            // Add letterbox padding if VOD doesn't fill the output height
             if (_scalingInfo.RequiresLetterboxing)
             {
                 sb.Append($",pad={_scalingInfo.ScaledVodWidth}:{_renderOptions.OutputHeight}:0:{_scalingInfo.LetterboxPaddingTop}:black");
@@ -492,8 +545,9 @@ namespace TwitchDownloaderCore
             
             sb.Append("[vod];");
             
-            // Chat is already rendered at full output height, just ensure it's the right size
-            sb.Append($"[1:v]scale={_scalingInfo.ChatWidth}:{_scalingInfo.ChatHeight}[chat];");
+            // Normalize chat frame rate too
+            sb.Append($"[1:v]fps={fps}[chat_fps];");
+            sb.Append($"[chat_fps]scale={_scalingInfo.ChatWidth}:{_scalingInfo.ChatHeight}[chat];");
             
             // Stack horizontally: VOD on left, chat on right
             sb.Append("[vod][chat]hstack=inputs=2");
@@ -506,17 +560,29 @@ namespace TwitchDownloaderCore
             var args = new List<string>
             {
                 "-y", // Overwrite output file
+
+                "-threads", _renderOptions.FfmpegThreads.ToString(), // Configurable CPU threads
+                "-filter_threads", _renderOptions.FfmpegThreads.ToString(), // Match filter threads to encoder threads
+                "-filter_complex_threads", _renderOptions.FfmpegThreads.ToString(), // Match filter_complex threads
+
                 "-i", _vodPath,
                 "-i", _chatVideoPath,
+
                 "-filter_complex", filterComplex,
+
+                "-r", _renderOptions.VodFramerate.ToString(), // Output frame rate
+                "-vsync", "cfr",                 // Constant frame rate
+                
                 "-c:v", "libx264",
                 "-preset", "medium",
                 "-crf", "23",
                 "-pix_fmt", "yuv420p",
+
                 "-c:a", "copy", // Copy audio from VOD
+
                 outputPath
             };
-            
+
             return args;
         }
 
@@ -694,3 +760,4 @@ namespace TwitchDownloaderCore
         public void LogFfmpeg(string logMessage) => _parent.LogFfmpeg(logMessage);
     }
 }
+

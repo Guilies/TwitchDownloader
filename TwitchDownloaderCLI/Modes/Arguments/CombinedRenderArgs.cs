@@ -106,6 +106,9 @@ namespace TwitchDownloaderCLI.Modes.Arguments
         [Option("ffmpeg-path", HelpText = "Path to FFmpeg executable.")]
         public string FfmpegPath { get; set; }
 
+        [Option("ffmpeg-threads", Default = 0, HelpText = "Number of threads for FFmpeg encoding. 0 = auto-detect all CPU cores. Recommended: 0 for most users.")]
+        public int FfmpegThreads { get; set; }
+
         [Option("temp-path", Default = "", HelpText = "Path to temporary folder to use for cache.")]
         public string TempFolder { get; set; }
 

@@ -89,6 +89,18 @@
                             <TextBox x:Name="TextOauth" MinWidth="200" TextChanged="TextOauth_TextChanged" Background="{DynamicResource AppElementBackground}" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}" />
                         </StackPanel>
 
+                        <StackPanel Orientation="Horizontal" Margin="0,5">
+                            <TextBlock Text="Threads:" Width="100" VerticalAlignment="Center" Foreground="{DynamicResource AppText}" />
+                            <hc:NumericUpDown x:Name="numDownloadThreads" Minimum="1" Maximum="20" Value="4" Width="80" ValueChanged="numDownloadThreads_ValueChanged" Background="{DynamicResource AppElementBackground}" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}" />
+                            <TextBlock Text="(Download)" Margin="5,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource AppText}" FontStyle="Italic"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,5">
+                            <TextBlock Text="FFmpeg Threads:" Width="100" VerticalAlignment="Center" Foreground="{DynamicResource AppText}" />
+                            <hc:NumericUpDown x:Name="numFfmpegThreads" Minimum="0" Maximum="128" Value="0" Width="80" ValueChanged="numFfmpegThreads_ValueChanged" Background="{DynamicResource AppElementBackground}" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}" />
+                            <TextBlock Text="(0 = Auto)" Margin="5,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource AppText}" FontStyle="Italic"/>
+                        </StackPanel>
+
                         <Separator Margin="0,15,0,15" Background="{DynamicResource AppElementBorder}"/>
 
                         <!-- Output Settings -->

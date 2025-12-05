@@ -113,6 +113,7 @@ namespace TwitchDownloaderCLI.Modes
                 FfmpegPath = string.IsNullOrWhiteSpace(inputOptions.FfmpegPath) 
                     ? FfmpegHandler.FfmpegExecutableName 
                     : Path.GetFullPath(inputOptions.FfmpegPath),
+                FfmpegThreads = inputOptions.FfmpegThreads,
                 TempFolder = inputOptions.TempFolder,
 
                 // Callbacks

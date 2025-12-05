@@ -50,6 +50,7 @@ namespace TwitchDownloaderWPF
 
             // Load saved settings
             TextOauth.Text = Settings.Default.OAuth;
+            // Note: Thread settings are loaded from UI defaults (4 for download, 0 for FFmpeg)
             
             // Initialize aspect ratio (default 16:9)
             comboAspectRatio.SelectedIndex = 0;
@@ -302,7 +303,7 @@ namespace TwitchDownloaderWPF
                 Id = currentVideoId,
                 Quality = ((ComboBoxItem)comboQuality.SelectedItem)?.Tag?.ToString(),
                 Oauth = TextOauth.Text,
-                DownloadThreads = 4,
+                DownloadThreads = 4, // Default for now
                 ThrottleKib = Settings.Default.DownloadThrottleEnabled 
                     ? Settings.Default.MaximumBandwidthKib 
                     : -1,
@@ -330,6 +331,7 @@ namespace TwitchDownloaderWPF
                 // File Settings
                 OutputFile = filename,
                 FfmpegPath = "ffmpeg",
+                FfmpegThreads = 0, // Default to auto
                 TempFolder = Settings.Default.TempPath
             };
 
@@ -513,6 +515,17 @@ namespace TwitchDownloaderWPF
                 Settings.Default.OAuth = TextOauth.Text;
                 Settings.Default.Save();
             }
+        }
+
+        private void numDownloadThreads_ValueChanged(object sender, HandyControl.Data.FunctionEventArgs<double> e)
+        {
+            // Download threads value changed - currently not persisted
+        }
+
+        private void numFfmpegThreads_ValueChanged(object sender, HandyControl.Data.FunctionEventArgs<double> e)
+        {
+            // Note: We don't persist this setting yet since it requires adding a new Settings property
+            // For now, it will default to 0 (auto) on each application start
         }
 
         private void CheckStart_OnCheckStateChanged(object sender, RoutedEventArgs e)
