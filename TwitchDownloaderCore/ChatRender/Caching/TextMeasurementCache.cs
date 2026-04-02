@@ -29,11 +29,11 @@ namespace TwitchDownloaderCore.ChatRender.Caching
 
             public MeasurementKey(ReadOnlySpan<char> text, float fontSize, bool isRtl)
             {
-#if NET6_0_OR_GREATER
+                #if NET6_0_OR_GREATER
                 TextHash = string.GetHashCode(text);
-#else
+                #else
                 TextHash = text.ToString().GetHashCode();
-#endif
+                #endif
                 TextLength = text.Length;
                 FontSize = fontSize;
                 IsRtl = isRtl;
@@ -98,6 +98,8 @@ namespace TwitchDownloaderCore.ChatRender.Caching
                     using var shaper = new SKShaper(font.Typeface);
                     using var buffer = new HarfBuzzSharp.Buffer();
                     buffer.AddUtf16(text);
+                    // Ensure buffer has valid segment properties (direction/script/language)
+                    buffer.GuessSegmentProperties();
                     var measure = shaper.Shape(buffer, font);
                     width = measure.Width;
                 }
@@ -156,6 +158,8 @@ namespace TwitchDownloaderCore.ChatRender.Caching
                     using var shaper = new SKShaper(font.Typeface);
                     using var buffer = new HarfBuzzSharp.Buffer();
                     buffer.AddUtf16(text);
+                    // Ensure buffer has valid segment properties (direction/script/language)
+                    buffer.GuessSegmentProperties();
                     var measure = shaper.Shape(buffer, font);
                     width = measure.Width;
                 }

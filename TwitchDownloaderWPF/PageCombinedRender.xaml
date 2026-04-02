@@ -183,7 +183,7 @@
                         <Separator Margin="0,10,0,10" Background="{DynamicResource AppElementBorder}"/>
 
                         <TextBlock Text="Display Options" FontWeight="Bold" FontSize="12" Margin="0,0,0,5" Foreground="{DynamicResource AppText}" />
-                        <CheckBox x:Name="checkShowTimestamps" Content="Show Timestamps" IsChecked="True" Margin="0,3" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}"/>
+                        <CheckBox x:Name="checkShowTimestamps" Content="Show Timestamps" IsChecked="False" Margin="0,3" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}"/>
                         <CheckBox x:Name="checkShowBadges" Content="Show Badges" IsChecked="True" Margin="0,3" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}"/>
                         <CheckBox x:Name="checkShowAvatars" Content="Show Avatars" IsChecked="False" Margin="0,3" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}"/>
 

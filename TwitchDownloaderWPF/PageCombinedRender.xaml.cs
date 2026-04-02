@@ -63,7 +63,7 @@ namespace TwitchDownloaderWPF
             
             // Initialize other settings
             numFontSize.Value = 24;
-            checkShowTimestamps.IsChecked = true;
+            checkShowTimestamps.IsChecked = false;
             checkShowBadges.IsChecked = true;
             checkShowAvatars.IsChecked = false;
             checkBttvEmotes.IsChecked = true;
