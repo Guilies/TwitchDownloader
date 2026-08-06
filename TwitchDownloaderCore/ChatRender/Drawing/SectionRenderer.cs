@@ -168,7 +168,32 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                     if (!_options.SkipDriveWaiting)
                         DriveHelper.WaitForDrive(outputDrive, _progress, cancellationToken).Wait(cancellationToken);
 
-                    ffmpegStream.Write(frame.Bytes);
+                    try
+                    {
+                        ffmpegStream.Write(frame.Bytes);
+                    }
+                    catch (IOException ex)
+                    {
+                        _progress.LogError($"Write to ffmpeg stdin failed: {ex.Message}");
+                        try
+                        {
+                            _progress.LogInfo($"ffmpeg.HasExited={ffmpegProcess.HasExited}");
+                            if (ffmpegProcess.HasExited)
+                                _progress.LogInfo($"ffmpeg.ExitCode={ffmpegProcess.ExitCode}");
+                        }
+                        catch { }
+
+                        try
+                        {
+                            // Try to capture any remaining stderr from ffmpeg
+                            var stderr = ffmpegProcess.StandardError?.ReadToEnd();
+                            if (!string.IsNullOrEmpty(stderr))
+                                _progress.LogInfo("ffmpeg stderr: " + stderr);
+                        }
+                        catch { }
+
+                        throw;
+                    }
 
                     if (maskProcess != null)
                     {
@@ -176,7 +201,31 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                             DriveHelper.WaitForDrive(outputDrive, _progress, cancellationToken).Wait(cancellationToken);
 
                         SetFrameMask(frame);
-                        maskStream.Write(frame.Bytes);
+                        try
+                        {
+                            maskStream.Write(frame.Bytes);
+                        }
+                        catch (IOException ex)
+                        {
+                            _progress.LogError($"Write to ffmpeg mask stdin failed: {ex.Message}");
+                            try
+                            {
+                                _progress.LogInfo($"mask ffmpeg.HasExited={maskProcess.HasExited}");
+                                if (maskProcess.HasExited)
+                                    _progress.LogInfo($"mask ffmpeg.ExitCode={maskProcess.ExitCode}");
+                            }
+                            catch { }
+
+                            try
+                            {
+                                var stderr = maskProcess.StandardError?.ReadToEnd();
+                                if (!string.IsNullOrEmpty(stderr))
+                                    _progress.LogInfo("mask ffmpeg stderr: " + stderr);
+                            }
+                            catch { }
+
+                            throw;
+                        }
                     }
                 }
                 finally
