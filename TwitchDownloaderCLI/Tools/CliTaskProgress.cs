@@ -2,10 +2,11 @@ using System;
 using System.Runtime.CompilerServices;
 using TwitchDownloaderCLI.Models;
 using TwitchDownloaderCore.Interfaces;
+using TwitchDownloaderCore.Models;
 
 namespace TwitchDownloaderCLI.Tools
 {
-    internal class CliTaskProgress : ITaskProgress, IDisposable
+    internal class CliTaskProgress : ITaskProgress, IDetailedTaskProgress, IDisposable
     {
         private const string STATUS_PREAMBLE = "[STATUS] - ";
         private const string VERBOSE_LOG_PREAMBLE = "[VERBOSE] - ";
@@ -123,6 +124,32 @@ namespace TwitchDownloaderCLI.Tools
                 _lastPercent = percent;
                 _lastTime1 = time1;
                 _lastTime2 = time2;
+            }
+        }
+
+        public void ReportDetailedProgress(TaskProgressSnapshot snapshot)
+        {
+            if ((_logLevel & LogLevel.Status) == 0) return;
+            ArgumentNullException.ThrowIfNull(snapshot);
+
+            lock (this)
+            {
+                string remaining = snapshot.Remaining.HasValue
+                    ? $" | ETA {snapshot.Remaining.Value:c}"
+                    : string.Empty;
+                string detail = string.IsNullOrWhiteSpace(snapshot.Detail)
+                    ? string.Empty
+                    : $" | {snapshot.Detail}";
+                string status =
+                    $"[{snapshot.PhaseIndex}/{snapshot.PhaseCount}] {snapshot.Action}: " +
+                    $"{snapshot.ActionPercent}% | Overall {snapshot.OverallPercent}%{remaining}{detail}";
+
+                _lastStatusLength = WriteSameLineMessage(
+                    STATUS_PREAMBLE,
+                    status,
+                    _lastStatusLength);
+                _lastWriteHadNewLine = false;
+                _lastPercent = snapshot.OverallPercent;
             }
         }
 

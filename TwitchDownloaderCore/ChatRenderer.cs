@@ -52,6 +52,9 @@ namespace TwitchDownloaderCore
         private readonly CommentProcessor _commentProcessor;
         private readonly ImageFetcher _imageFetcher;
         private readonly SectionRenderer _sectionRenderer;
+        private bool _prepared;
+
+        internal int EffectiveFramerate => renderOptions.Framerate;
 
         public ChatRenderer(ChatRenderOptions chatRenderOptions, ITaskProgress progress)
         {
@@ -144,34 +147,7 @@ namespace TwitchDownloaderCore
 
         private async Task RenderAsyncImpl(FileInfo outputFileInfo, FileStream outputFs, FileInfo maskFileInfo, FileStream maskFs, CancellationToken cancellationToken)
         {
-            _progress.SetStatus("Fetching Images [1/2]");
-            var fetchedImages = await _imageFetcher.FetchAllImagesAsync(chatRoot, cancellationToken);
-            
-            // Initialize image cache with fetched images
-            _imageCache.Initialize(
-                fetchedImages.Badges,
-                fetchedImages.Emotes,
-                fetchedImages.ThirdPartyEmotes,
-                fetchedImages.Cheermotes,
-                fetchedImages.Emojis,
-                fetchedImages.Avatars
-            );
-            
-            // Process comments (disperse, floor, remove restricted)
-            _commentProcessor.ProcessComments(chatRoot.comments);
-            
-            // Initialize fonts typefaces and geometry context
-            _fontCache.SetTypefaces(renderOptions.UsernameFontStyle, renderOptions.MessageFontStyle);
-            _context.InitializeGeometry(_fontCache.MessageFont);
-            
-            // Calculate BlockArtPreWrap values
-            renderOptions.BlockArtPreWrapWidth = 29.166 * renderOptions.FontSize - renderOptions.SidePadding * 2;
-            renderOptions.BlockArtPreWrap = renderOptions.ChatWidth > renderOptions.BlockArtPreWrapWidth;
-
-            // Clear embedded data to save memory
-            chatRoot.embeddedData = null;
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
+            await PrepareAsync(cancellationToken);
 
             (int startTick, int totalTicks) = GetVideoTicks();
 
@@ -201,9 +177,76 @@ namespace TwitchDownloaderCore
             {
                 ffmpegProcess.Dispose();
                 maskProcess?.Dispose();
-                GC.Collect();
                 throw;
             }
+        }
+
+        internal async Task PrepareAsync(CancellationToken cancellationToken)
+        {
+            if (_prepared)
+                return;
+
+            _progress.SetStatus("Fetching Images [1/2]");
+            var fetchedImages = await _imageFetcher.FetchAllImagesAsync(chatRoot, cancellationToken);
+
+            // Initialize image cache with fetched images
+            _imageCache.Initialize(
+                fetchedImages.Badges,
+                fetchedImages.Emotes,
+                fetchedImages.ThirdPartyEmotes,
+                fetchedImages.Cheermotes,
+                fetchedImages.Emojis,
+                fetchedImages.Avatars,
+                fetchedImages.Gifs
+            );
+
+            if (renderOptions.ReduceFramerateWhenStatic && !_imageCache.HasAnimatedAssets)
+            {
+                int requestedFramerate = renderOptions.Framerate;
+                renderOptions.Framerate = ChatRenderFrameRatePlanner.GetStaticFrameRate(
+                    requestedFramerate,
+                    renderOptions.UpdateRate);
+                _progress.LogInfo(
+                    $"Static chat assets detected; reducing chat frame rate from " +
+                    $"{requestedFramerate} to {renderOptions.Framerate} fps.");
+            }
+
+            // Process comments (disperse, floor, remove restricted)
+            _commentProcessor.ProcessComments(chatRoot.comments);
+
+            // Initialize fonts typefaces and geometry context
+            _fontCache.SetTypefaces(renderOptions.UsernameFontStyle, renderOptions.MessageFontStyle);
+            _context.InitializeGeometry(_fontCache.MessageFont);
+
+            // Calculate BlockArtPreWrap values
+            renderOptions.BlockArtPreWrapWidth = 29.166 * renderOptions.FontSize - renderOptions.SidePadding * 2;
+            renderOptions.BlockArtPreWrap = renderOptions.ChatWidth > renderOptions.BlockArtPreWrapWidth;
+
+            // Clear embedded data to save memory
+            chatRoot.embeddedData = null;
+
+            _sectionRenderer.SetChatRoot(chatRoot);
+            _prepared = true;
+        }
+
+        internal async Task RenderRawFramesAsync(
+            Stream frameOutput,
+            string outputPath,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(frameOutput);
+            await PrepareAsync(cancellationToken);
+            (int startTick, int totalTicks) = GetVideoTicks();
+            _progress.SetTemplateStatus("Rendering Video {0}% ({1} Elapsed | {2} Remaining)", 0, TimeSpan.Zero, TimeSpan.Zero);
+            await Task.Run(
+                () => _sectionRenderer.RenderSectionToStreams(
+                    startTick,
+                    startTick + totalTicks,
+                    frameOutput,
+                    maskOutput: null,
+                    outputPath,
+                    cancellationToken),
+                cancellationToken);
         }
 
         private FfmpegProcess GetFfmpegProcess(FileInfo fileInfo)
@@ -278,17 +321,17 @@ namespace TwitchDownloaderCore
         {
             if (renderOptions.StartOverride != -1 && renderOptions.EndOverride != -1)
             {
-                int startSeconds = renderOptions.StartOverride;
-                int videoStartTick = startSeconds * renderOptions.Framerate;
-                int totalTicks = renderOptions.EndOverride * renderOptions.Framerate - videoStartTick;
-                return (videoStartTick, totalTicks);
+                return ChatRenderTimeline.CalculateTicks(
+                    renderOptions.StartOverride,
+                    renderOptions.EndOverride,
+                    renderOptions.Framerate);
             }
             else
             {
-                int startSeconds = (int)Math.Floor(chatRoot.video.start);
-                int videoStartTick = startSeconds * renderOptions.Framerate;
-                int totalTicks = (int)Math.Ceiling(chatRoot.video.end * renderOptions.Framerate) - videoStartTick;
-                return (videoStartTick, totalTicks);
+                return ChatRenderTimeline.CalculateTicks(
+                    chatRoot.video.start,
+                    chatRoot.video.end,
+                    renderOptions.Framerate);
             }
         }
 
@@ -296,6 +339,14 @@ namespace TwitchDownloaderCore
         {
             chatRoot = await ChatJson.DeserializeAsync(renderOptions.InputFile, true, false, true, cancellationToken);
             return chatRoot;
+        }
+
+        /// <summary>
+        /// Supplies an already downloaded chat, avoiding a JSON serialization/deserialization round trip.
+        /// </summary>
+        public void SetChatRoot(ChatRoot value)
+        {
+            chatRoot = value ?? throw new ArgumentNullException(nameof(value));
         }
 
         #region ImplementIDisposable
@@ -316,12 +367,11 @@ namespace TwitchDownloaderCore
 
                 if (isDisposing)
                 {
+                    _sectionRenderer?.Dispose();
                     _bitmapCache?.Dispose();
                     _imageCache?.Dispose();
                     _fontCache?.Dispose();
                     _context?.Dispose();
-                    // SectionRenderer doesn't implement IDisposable
-                    
                     chatRoot = null;
                 }
             }

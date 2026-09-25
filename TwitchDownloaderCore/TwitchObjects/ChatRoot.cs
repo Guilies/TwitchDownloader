@@ -56,13 +56,16 @@ namespace TwitchDownloaderCore.TwitchObjects
     {
         public string text { get; set; }
         public Emoticon emoticon { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public ChatGif gif { get; set; }
 
         public Fragment Clone()
         {
             return new Fragment()
             {
                 text = text,
-                emoticon = emoticon
+                emoticon = emoticon,
+                gif = gif?.Clone()
             };
         }
     }
@@ -262,6 +265,7 @@ namespace TwitchDownloaderCore.TwitchObjects
 
     public class EmbeddedData
     {
+        public List<EmbedEmoteData> gifs { get; set; } = new();
         public List<EmbedEmoteData> thirdParty { get; set; } = new();
         public List<EmbedEmoteData> firstParty { get; set; } = new();
         public List<EmbedChatBadge> twitchBadges { get; set; } = new();

@@ -158,6 +158,23 @@ namespace TwitchDownloaderCore.Chat
 
             foreach (var fragment in comment.message.fragments)
             {
+                if (fragment.gif != null)
+                {
+                    var label = HttpUtility.HtmlEncode(string.IsNullOrWhiteSpace(fragment.text) ? "[GIF]" : fragment.text);
+                    if (fragment.gif.TryGetAsset(out var key, out var url))
+                    {
+                        var embed = embedEmotes ? chatRoot.embeddedData?.gifs?.FirstOrDefault(x => x.id == key) : null;
+                        if (embed?.data?.Length > 0)
+                        {
+                            var mime = embed.data[0] == (byte)'R' ? "image/webp" : "image/gif";
+                            url = $"data:{mime};base64,{Convert.ToBase64String(embed.data)}";
+                        }
+                        message.Append($"<img style=\"display:block;max-width:100%;max-height:160px\" src=\"{HttpUtility.HtmlAttributeEncode(url)}\" alt=\"{label}\"> ");
+                    }
+                    else
+                        message.Append(label).Append(' ');
+                    continue;
+                }
                 if (fragment.emoticon == null)
                 {
                     foreach (var word in fragment.text.Split(' '))

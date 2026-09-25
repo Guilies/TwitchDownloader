@@ -107,6 +107,7 @@ namespace TwitchDownloaderCLI.Modes
                 FfzEmotes = inputOptions.FfzEmotes,
                 StvEmotes = inputOptions.StvEmotes,
                 EmbedChatData = inputOptions.EmbedChatData,
+                ChatDownloadThreads = inputOptions.ChatDownloadThreads,
 
                 // Output Options
                 OutputFile = inputOptions.OutputFile,
@@ -114,6 +115,8 @@ namespace TwitchDownloaderCLI.Modes
                     ? FfmpegHandler.FfmpegExecutableName 
                     : Path.GetFullPath(inputOptions.FfmpegPath),
                 FfmpegThreads = inputOptions.FfmpegThreads,
+                RenderProfile = inputOptions.RenderProfile,
+                Encoder = inputOptions.Encoder,
                 TempFolder = inputOptions.TempFolder,
 
                 // Callbacks
@@ -140,6 +143,8 @@ namespace TwitchDownloaderCLI.Modes
             logger.LogInfo($"  Chat Width: {renderOptions.ChatWidth}px ({renderOptions.ChatWidthUnits} units)");
             logger.LogInfo($"  Chat Height: {renderOptions.ChatHeight}px");
             logger.LogInfo($"  VOD Scaling Factor: {renderOptions.VodScalingFactor:P1}");
+            logger.LogInfo($"  Encoder: {renderOptions.Encoder}");
+            logger.LogInfo($"  Render Profile: {renderOptions.RenderProfile}");
 
             return renderOptions;
         }

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-08-06",
+  "scenario": {
+    "name": "phase0_two_pass_5s_800x360",
+    "description": "Generated 640x360 VOD plus offline-rendered 160x360 chat composed to 800x360 using the corrected two-pass pipeline.",
+    "durationSeconds": 5,
+    "frameRate": "30/1",
+    "chatUpdateRateSeconds": 0.2,
+    "comments": 3,
+    "iterations": 3,
+    "fixtureGenerationIncluded": false
+  },
+  "environment": {
+    "os": "Microsoft Windows 10.0.26200",
+    "architecture": "x64",
+    "logicalProcessors": 24,
+    "processorIdentifier": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+    "testRuntime": ".NET 8.0.27",
+    "sdk": ".NET SDK 10.0.301",
+    "ffmpeg": "8.1.2-essentials_build-www.gyan.dev"
+  },
+  "runs": [
+    {
+      "chatRenderMilliseconds": 111,
+      "compositeMilliseconds": 217,
+      "totalMilliseconds": 328,
+      "processCpuMilliseconds": 78,
+      "managedAllocatedBytes": 37577192
+    },
+    {
+      "chatRenderMilliseconds": 105,
+      "compositeMilliseconds": 206,
+      "totalMilliseconds": 311,
+      "processCpuMilliseconds": 109,
+      "managedAllocatedBytes": 37581240
+    },
+    {
+      "chatRenderMilliseconds": 105,
+      "compositeMilliseconds": 201,
+      "totalMilliseconds": 306,
+      "processCpuMilliseconds": 156,
+      "managedAllocatedBytes": 37562712
+    }
+  ],
+  "median": {
+    "chatRenderMilliseconds": 105,
+    "compositeMilliseconds": 206,
+    "totalMilliseconds": 311,
+    "processCpuMilliseconds": 109,
+    "managedAllocatedBytes": 37577192,
+    "chatVideoBytes": 19820,
+    "outputBytes": 525492,
+    "framesWritten": 151,
+    "updateAttempts": 25,
+    "visualUpdates": 3,
+    "rawChatBytesWritten": 34790400,
+    "bitmapCanvasCacheEntriesAtEnd": 32
+  },
+  "notes": [
+    "The fixture is intentionally small and should not be used to predict long-render speedups.",
+    "Managed allocation is close to raw chat bytes written, corroborating the per-frame SKBitmap.Bytes copy identified for Phase 1.",
+    "The canvas cache retained 32 entries after only three visual updates, corroborating the resource-lifetime issue identified for Phase 1."
+  ]
+}

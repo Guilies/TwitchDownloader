@@ -21,6 +21,23 @@ namespace TwitchDownloaderCore.Options
         SD_360p      // 640x360 (16:9) or 480x360 (4:3)
     }
 
+    public enum CombinedRenderSpeedProfile
+    {
+        Fast,
+        Balanced,
+        Quality
+    }
+
+    public enum CombinedRenderEncoder
+    {
+        Software,
+        AutoHardware,
+        NvidiaNvenc,
+        IntelQuickSync,
+        AmdAmf,
+        AppleVideoToolbox
+    }
+
     public class CombinedRenderOptions
     {
         // VOD Download Options
@@ -35,13 +52,17 @@ namespace TwitchDownloaderCore.Options
         public bool BttvEmotes { get; set; } = true;
         public bool FfzEmotes { get; set; } = true;
         public bool StvEmotes { get; set; } = true;
+        public int ChatDownloadThreads { get; set; } = 4;
+        public string ChatOutputFile { get; set; }
 
         // Trim Options (shared between VOD and Chat)
         public bool TrimBeginning { get; set; }
         public TimeSpan TrimBeginningTime { get; set; }
         public bool TrimEnding { get; set; }
         public TimeSpan TrimEndingTime { get; set; }
-        public VideoTrimMode TrimMode { get; set; } = VideoTrimMode.Safe;
+        // Combined output is re-encoded, so exact trimming keeps VOD, chat, and
+        // audio on the same requested timeline without safe-mode segment overhang.
+        public VideoTrimMode TrimMode { get; set; } = VideoTrimMode.Exact;
 
         // Chat Render Options
         public SKColor ChatBackgroundColor { get; set; } = SKColor.Parse("#111111");
@@ -86,12 +107,14 @@ namespace TwitchDownloaderCore.Options
         /// <summary>
         /// Frame rate of the source VOD (detected from playlist)
         /// </summary>
-        public int VodFramerate { get; set; } = 30; // Default to 30 if detection fails
+        public VideoFrameRate VodFramerate { get; set; } = new(30, 1);
 
         /// <summary>
         /// Number of threads for FFmpeg encoding (0 = auto-detect all CPU cores)
         /// </summary>
         public int FfmpegThreads { get; set; } = 0; // 0 means use all available cores
+        public CombinedRenderSpeedProfile RenderProfile { get; set; } = CombinedRenderSpeedProfile.Balanced;
+        public CombinedRenderEncoder Encoder { get; set; } = CombinedRenderEncoder.Software;
 
         // Helper Methods
         private int GetOutputWidth()
@@ -154,6 +177,9 @@ namespace TwitchDownloaderCore.Options
             if (string.IsNullOrWhiteSpace(OutputFile))
                 return "Output file path is required";
 
+            if (DownloadThreads < 1 || DownloadThreads > 20)
+                return "VOD download threads must be between 1 and 20";
+
             // Validate chat width units based on aspect ratio
             int maxChatUnits = OutputAspectRatio == AspectRatio.SixteenByNine ? 15 : 3;
             if (ChatWidthUnits < 1 || ChatWidthUnits > maxChatUnits)
@@ -165,8 +191,32 @@ namespace TwitchDownloaderCore.Options
             if (Framerate < 10 || Framerate > 120)
                 return "Framerate must be between 10 and 120";
 
+            if (ChatDownloadThreads < 1 || ChatDownloadThreads > 10)
+                return "Chat download threads must be between 1 and 10";
+
+            if (FfmpegThreads < 0 || FfmpegThreads > 128)
+                return "FFmpeg threads must be between 0 and 128";
+
+            if (!Enum.IsDefined(typeof(CombinedRenderSpeedProfile), RenderProfile))
+                return "Invalid render profile";
+
+            if (!Enum.IsDefined(typeof(CombinedRenderEncoder), Encoder))
+                return "Invalid combined render encoder";
+
             if (UpdateRate < 0.1 || UpdateRate > 5.0)
                 return "Update rate must be between 0.1 and 5.0 seconds";
+
+            if ((TrimBeginning || TrimEnding) && TrimMode != VideoTrimMode.Exact)
+                return "Trimmed combined renders require exact trim mode to keep VOD, chat, and audio synchronized";
+
+            if (TrimBeginning && TrimBeginningTime < TimeSpan.Zero)
+                return "Trim beginning cannot be negative";
+
+            if (TrimEnding && TrimEndingTime <= TimeSpan.Zero)
+                return "Trim ending must be greater than zero";
+
+            if (TrimBeginning && TrimEnding && TrimBeginningTime >= TrimEndingTime)
+                return "Trim ending must be greater than trim beginning";
 
             return null; // Valid
         }

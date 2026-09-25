@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-08-07",
+  "scenario": "phase2_in_memory_two_pass_5s_800x360",
+  "changes": [
+    "Direct ChatRoot handoff from downloader to renderer",
+    "No temporary chat JSON on the default combined path",
+    "Concurrent VOD and chat download/render acquisition branches",
+    "Shared VOD metadata, chapter, quality, and playlist plan",
+    "Optional explicit chat JSON output sink",
+    "Embedded data and commenter backfill disabled on the default combined path",
+    "Configurable chat request concurrency bounded from 1 to 10"
+  ],
+  "runs": [
+    {
+      "chatRenderMilliseconds": 80,
+      "compositeMilliseconds": 200,
+      "totalMilliseconds": 280,
+      "processCpuMilliseconds": 78,
+      "managedAllocatedBytes": 2681768
+    },
+    {
+      "chatRenderMilliseconds": 74,
+      "compositeMilliseconds": 216,
+      "totalMilliseconds": 291,
+      "processCpuMilliseconds": 94,
+      "managedAllocatedBytes": 2702864
+    },
+    {
+      "chatRenderMilliseconds": 66,
+      "compositeMilliseconds": 197,
+      "totalMilliseconds": 264,
+      "processCpuMilliseconds": 62,
+      "managedAllocatedBytes": 2705280
+    }
+  ],
+  "median": {
+    "chatRenderMilliseconds": 74,
+    "compositeMilliseconds": 200,
+    "totalMilliseconds": 280,
+    "processCpuMilliseconds": 78,
+    "managedAllocatedBytes": 2702864,
+    "framesWritten": 26,
+    "updateAttempts": 26,
+    "visualUpdates": 3,
+    "rawChatBytesWritten": 5990400,
+    "temporaryChatVideoBytes": 16992,
+    "outputBytes": 526907,
+    "textMeasurementCacheEntriesAtEnd": 6,
+    "textMeasurementCacheCapacity": 4096,
+    "bitmapCanvasCacheEntriesAtEnd": 4
+  },
+  "comparisonToPhase1StaticCheckpoint": {
+    "managedAllocationReductionPercent": 6.3,
+    "temporaryJsonFilesCreated": 0,
+    "timingConclusion": "The generated five-second media fixture validates direct handoff, but does not include network acquisition. A representative network-backed run is required to quantify parallel acquisition wall-time savings."
+  }
+}

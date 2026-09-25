@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SkiaSharp;
+using TwitchDownloaderCore.Chat;
 using TwitchDownloaderCore.Interfaces;
+using TwitchDownloaderCore.ChatRender.Message;
+using TwitchDownloaderCore.ChatRender.Utilities;
 using TwitchDownloaderCore.Options;
 using TwitchDownloaderCore.Tools;
 using TwitchDownloaderCore.TwitchObjects;
@@ -22,6 +26,7 @@ namespace TwitchDownloaderCore.ChatRender.Processing
         public List<CheerEmote> Cheermotes;
         public Dictionary<string, SKBitmap> Emojis;
         public Dictionary<string, SKBitmap> Avatars;
+        public Dictionary<string, TwitchEmote> Gifs;
     }
 
     /// <summary>
@@ -48,22 +53,62 @@ namespace TwitchDownloaderCore.ChatRender.Processing
             var emoteTask = GetScaledEmotes(chatRoot, cancellationToken);
             var emoteThirdTask = GetScaledThirdEmotes(chatRoot, cancellationToken);
             var cheerTask = GetScaledBits(chatRoot, cancellationToken);
-            var emojiTask = GetScaledEmojis(cancellationToken);
+            var emojiTask = GetScaledEmojis(chatRoot, cancellationToken);
+            var gifTask = GetScaledGifs(chatRoot, cancellationToken);
             var avatarTask = _options.RenderUserAvatars
                 ? GetScaledAvatars(chatRoot, cancellationToken)
         : Task.FromResult(new Dictionary<string, SKBitmap>());
 
-            await Task.WhenAll(badgeTask, emoteTask, emoteThirdTask, cheerTask, emojiTask, avatarTask);
+            try
+            {
+                await Task.WhenAll(badgeTask, emoteTask, emoteThirdTask, cheerTask, emojiTask, avatarTask, gifTask);
+            }
+            catch
+            {
+                if (gifTask.IsCompletedSuccessfully)
+                    foreach (var gif in gifTask.Result.Values)
+                        gif.Dispose();
+                throw;
+            }
 
             return new FetchedImages
             {
                 Badges = badgeTask.Result,
                 Emotes = emoteTask.Result,
+                Gifs = gifTask.Result,
                 ThirdPartyEmotes = emoteThirdTask.Result,
                 Cheermotes = cheerTask.Result,
                 Emojis = emojiTask.Result,
                 Avatars = avatarTask.Result
             };
+        }
+
+        private async Task<Dictionary<string, TwitchEmote>> GetScaledGifs(ChatRoot chatRoot, CancellationToken cancellationToken)
+        {
+            var images = await GifImages.FetchAsync(chatRoot, _cacheDir, _progress, _options.Offline, cancellationToken);
+            try
+            {
+                // Leave room for the username, highlighted-message indentation and chat margins.
+                var maxWidth = Math.Max(1, Math.Min(240 * _options.ReferenceScale,
+                    _options.ChatWidth - 2 * _options.SidePadding - _options.AccentIndentWidth));
+                var availableRows = Math.Max(1,
+                    (_options.ChatHeight - _options.SectionHeight - _options.VerticalPadding) / _options.SectionHeight);
+                var maxHeight = Math.Max(1, Math.Min(160 * _options.ReferenceScale,
+                    availableRows * _options.SectionHeight));
+                foreach (var image in images.Values)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var scale = Math.Min(1, Math.Min(maxWidth / image.Width, maxHeight / image.Height));
+                    image.Resize(Math.Max(1, (int)(image.Width * scale)), Math.Max(1, (int)(image.Height * scale)));
+                }
+                return images;
+            }
+            catch
+            {
+                foreach (var image in images.Values)
+                    image.Dispose();
+                throw;
+            }
         }
 
         private async Task<List<ChatBadge>> GetScaledBadges(ChatRoot chatRoot, CancellationToken cancellationToken)
@@ -168,9 +213,15 @@ namespace TwitchDownloaderCore.ChatRender.Processing
             return cheerTask;
         }
 
-        private async Task<Dictionary<string, SKBitmap>> GetScaledEmojis(CancellationToken cancellationToken)
+        private async Task<Dictionary<string, SKBitmap>> GetScaledEmojis(ChatRoot chatRoot, CancellationToken cancellationToken)
         {
-            var emojis = await TwitchHelper.GetEmojis(_cacheDir, _options.EmojiVendor, _progress, cancellationToken);
+            var referencedEmojiKeys = FindReferencedEmojiKeys(chatRoot.comments);
+            var emojis = await TwitchHelper.GetEmojis(
+                _cacheDir,
+                _options.EmojiVendor,
+                referencedEmojiKeys,
+                _progress,
+                cancellationToken);
 
             var newHeight = (int)Math.Round(36 * _options.ReferenceScale * _options.EmojiScale);
 
@@ -191,6 +242,31 @@ namespace TwitchDownloaderCore.ChatRender.Processing
             }
 
             return emojis;
+        }
+
+        private static HashSet<string> FindReferencedEmojiKeys(IEnumerable<Comment> comments)
+        {
+            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var comment in comments)
+            {
+                var body = comment.message?.body;
+                if (string.IsNullOrEmpty(body))
+                    continue;
+
+                var textElements = StringInfo.GetTextElementEnumerator(body);
+                while (textElements.MoveNext())
+                {
+                    var textElement = textElements.GetTextElement();
+                    if (textElement.Length == 1 && char.IsAscii(textElement[0]))
+                        continue;
+
+                    var emoji = EmojiIndex.Find(textElement);
+                    if (emoji is not null)
+                        keys.Add(GeometryUtilities.GetKeyName(emoji.Value.Sequence.Codepoints));
+                }
+            }
+
+            return keys;
         }
 
         private async Task<Dictionary<string, SKBitmap>> GetScaledAvatars(ChatRoot chatRoot, CancellationToken cancellationToken)

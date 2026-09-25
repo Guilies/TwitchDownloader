@@ -19,6 +19,8 @@ namespace TwitchDownloaderCore.ChatRender.Caching
         private bool _noFallbackFontFound = false;
         private readonly SKFontManager _fontManager;
 
+        public int FallbackFontCount => _fallbackFontCache.Count;
+
         public SKPaint MessageFont { get; private set; }
         public SKPaint NameFont { get; private set; }
         public SKPaint OutlinePaint { get; private set; }

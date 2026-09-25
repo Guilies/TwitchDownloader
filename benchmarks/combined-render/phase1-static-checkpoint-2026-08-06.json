@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-08-06",
+  "scenario": "phase1_static_two_pass_5s_800x360",
+  "changes": [
+    "Combined-only static chat frame-rate reduction",
+    "Exact update-grid preservation",
+    "Automatic animated-asset fallback to requested frame rate",
+    "Bounded paint-aware text measurement LRU",
+    "Bounded timestamp bitmap LRU with native resource eviction",
+    "Exact first-party emote and badge-version filtering"
+  ],
+  "runs": [
+    {
+      "chatRenderMilliseconds": 181,
+      "compositeMilliseconds": 421,
+      "totalMilliseconds": 604,
+      "processCpuMilliseconds": 156,
+      "managedAllocatedBytes": 2893176
+    },
+    {
+      "chatRenderMilliseconds": 189,
+      "compositeMilliseconds": 419,
+      "totalMilliseconds": 609,
+      "processCpuMilliseconds": 109,
+      "managedAllocatedBytes": 2883496
+    },
+    {
+      "chatRenderMilliseconds": 150,
+      "compositeMilliseconds": 353,
+      "totalMilliseconds": 503,
+      "processCpuMilliseconds": 125,
+      "managedAllocatedBytes": 2874928
+    }
+  ],
+  "median": {
+    "chatRenderMilliseconds": 181,
+    "compositeMilliseconds": 419,
+    "totalMilliseconds": 604,
+    "processCpuMilliseconds": 125,
+    "managedAllocatedBytes": 2883496,
+    "framesWritten": 26,
+    "updateAttempts": 26,
+    "visualUpdates": 3,
+    "rawChatBytesWritten": 5990400,
+    "temporaryChatVideoBytes": 16992,
+    "outputBytes": 526907,
+    "bitmapCanvasCacheEntriesAtEnd": 4
+  },
+  "comparisonToPhase1Checkpoint": {
+    "frameReductionPercent": 82.8,
+    "rawPipeByteReductionPercent": 82.8,
+    "temporaryChatVideoSizeReductionPercent": 14.3,
+    "timingConclusion": "The five-second fixture is dominated by process startup and is too noisy for a throughput conclusion. Longer fixtures remain required."
+  }
+}

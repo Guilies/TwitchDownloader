@@ -42,6 +42,9 @@ namespace TwitchDownloaderCore.TwitchObjects.Gql
     {
         public CommentEmote emote { get; set; }
         public string text { get; set; }
+        // Preserve media if supplied by a chat source. Twitch's current VOD persisted
+        // query does not expose the GIF metadata available in live chat.
+        public ChatGif gif { get; set; }
     }
 
     public class CommentEmote

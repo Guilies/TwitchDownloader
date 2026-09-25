@@ -84,6 +84,11 @@ namespace TwitchDownloaderWPF
             comboQuality.IsEnabled = isEnabled;
             comboAspectRatio.IsEnabled = isEnabled;
             comboResolution.IsEnabled = isEnabled;
+            comboRenderProfile.IsEnabled = isEnabled;
+            comboEncoder.IsEnabled = isEnabled;
+            numDownloadThreads.IsEnabled = isEnabled;
+            numChatDownloadThreads.IsEnabled = isEnabled;
+            numFfmpegThreads.IsEnabled = isEnabled;
             numChatWidthUnits.IsEnabled = isEnabled;
             checkStart.IsEnabled = isEnabled;
             checkEnd.IsEnabled = isEnabled;
@@ -303,7 +308,8 @@ namespace TwitchDownloaderWPF
                 Id = currentVideoId,
                 Quality = ((ComboBoxItem)comboQuality.SelectedItem)?.Tag?.ToString(),
                 Oauth = TextOauth.Text,
-                DownloadThreads = 4, // Default for now
+                DownloadThreads = (int)numDownloadThreads.Value,
+                ChatDownloadThreads = (int)numChatDownloadThreads.Value,
                 ThrottleKib = Settings.Default.DownloadThrottleEnabled 
                     ? Settings.Default.MaximumBandwidthKib 
                     : -1,
@@ -331,7 +337,11 @@ namespace TwitchDownloaderWPF
                 // File Settings
                 OutputFile = filename,
                 FfmpegPath = "ffmpeg",
-                FfmpegThreads = 0, // Default to auto
+                FfmpegThreads = (int)numFfmpegThreads.Value,
+                RenderProfile = Enum.Parse<CombinedRenderSpeedProfile>(
+                    ((ComboBoxItem)comboRenderProfile.SelectedItem).Tag.ToString()),
+                Encoder = Enum.Parse<CombinedRenderEncoder>(
+                    ((ComboBoxItem)comboEncoder.SelectedItem).Tag.ToString()),
                 TempFolder = Settings.Default.TempPath
             };
 
@@ -362,7 +372,37 @@ namespace TwitchDownloaderWPF
 
         private void SetPercent(int percent)
         {
-            Dispatcher.BeginInvoke(() => statusProgressBar.Value = percent);
+            Dispatcher.BeginInvoke(() =>
+            {
+                statusOverallProgressBar.Value = percent;
+                statusOverallPercent.Text = $"{percent}%";
+            });
+        }
+
+        private void SetDetailedProgress(TaskProgressSnapshot snapshot)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                statusOverallProgressBar.Value = snapshot.OverallPercent;
+                statusActionProgressBar.Value = snapshot.ActionPercent;
+                statusOverallPercent.Text = $"{snapshot.OverallPercent}%";
+                statusActionPercent.Text = $"{snapshot.ActionPercent}%";
+                statusMessage.Text = $"[{snapshot.PhaseIndex}/{snapshot.PhaseCount}] {snapshot.Action}";
+
+                string remaining = snapshot.Remaining.HasValue
+                    ? $" • ETA {snapshot.Remaining.Value:c}"
+                    : string.Empty;
+                statusProgressDetail.Text = $"{snapshot.Detail}{remaining}";
+            });
+        }
+
+        private void ResetProgressDisplay()
+        {
+            statusOverallProgressBar.Value = 0;
+            statusActionProgressBar.Value = 0;
+            statusOverallPercent.Text = "0%";
+            statusActionPercent.Text = "0%";
+            statusProgressDetail.Text = "Waiting to start";
         }
 
         private void SetStatus(string message)
@@ -424,10 +464,16 @@ namespace TwitchDownloaderWPF
 
             SetEnabled(false);
             btnGetInfo.IsEnabled = false;
+            ResetProgressDisplay();
 
             CombinedRenderOptions options = GetOptions(saveFileDialog.FileName);
 
-            var renderProgress = new WpfTaskProgress((LogLevel)Settings.Default.LogLevels, SetPercent, SetStatus, AppendLog);
+            var renderProgress = new WpfTaskProgress(
+                (LogLevel)Settings.Default.LogLevels,
+                SetPercent,
+                SetStatus,
+                AppendLog,
+                handleDetailedProgress: SetDetailedProgress);
             using var renderer = new CombinedRenderer(options, renderProgress);
             _cancellationTokenSource = new CancellationTokenSource();
 
@@ -460,7 +506,6 @@ namespace TwitchDownloaderWPF
 
             btnGetInfo.IsEnabled = true;
             SetEnabled(true);
-            renderProgress.ReportProgress(0);
             _cancellationTokenSource.Dispose();
             UpdateActionButtons(false);
 

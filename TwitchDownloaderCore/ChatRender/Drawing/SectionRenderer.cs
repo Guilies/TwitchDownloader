@@ -8,6 +8,7 @@ using System.Threading;
 using TwitchDownloaderCore.ChatRender.Caching;
 using TwitchDownloaderCore.ChatRender.Core;
 using TwitchDownloaderCore.ChatRender.Message;
+using TwitchDownloaderCore.ChatRender.Utilities;
 using TwitchDownloaderCore.Interfaces;
 using TwitchDownloaderCore.Models;
 using TwitchDownloaderCore.Options;
@@ -19,7 +20,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
     /// <summary>
     /// Top-level renderer that orchestrates the entire rendering pipeline
     /// </summary>
-    public sealed class SectionRenderer
+    public sealed class SectionRenderer : IDisposable
     {
         private static readonly SKColor Purple = SKColor.Parse("#7B2CF2");
 
@@ -37,13 +38,11 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
         private EmoteRenderer _emoteRenderer;
         private readonly HighlightIcons _highlightIcons;
         private readonly ITaskProgress _progress;
+        private bool _disposed;
 
 
         // Chat root data
         private ChatRoot _chatRoot;
-
-        // Pre-calculated update frame interval
-        private readonly int _updateFrame;
 
         public SectionRenderer(
             ChatRenderOptions options,
@@ -73,9 +72,6 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             _emoteRenderer = emoteRenderer;
             _highlightIcons = highlightIcons;
             _progress = progress;
-
-            // Calculate update frame interval
-            _updateFrame = (int)(options.Framerate / options.UpdateRate);
 
             // Create AccentedMessageRenderer with proper delegates (if messageRenderer is provided)
             if (messageRenderer != null && textRenderer != null)
@@ -138,14 +134,47 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             FfmpegProcess maskProcess,
             CancellationToken cancellationToken)
         {
-            UpdateFrame latestUpdate = null;
-            var ffmpegStream = new BinaryWriter(ffmpegProcess.StandardInput.BaseStream);
-            BinaryWriter maskStream = null;
-            if (maskProcess != null)
-                maskStream = new BinaryWriter(maskProcess.StandardInput.BaseStream);
+            RenderSectionToStreams(
+                startTick,
+                endTick,
+                ffmpegProcess.StandardInput.BaseStream,
+                maskProcess?.StandardInput.BaseStream,
+                ffmpegProcess.SavePath,
+                cancellationToken);
 
-            DriveInfo outputDrive = DriveHelper.GetOutputDrive(ffmpegProcess.SavePath);
+            ffmpegProcess.StandardInput.Close();
+            maskProcess?.StandardInput.Close();
+            ffmpegProcess.WaitForExit(100_000);
+            maskProcess?.WaitForExit(100_000);
+        }
+
+        public void RenderSectionToStreams(
+            int startTick,
+            int endTick,
+            Stream frameOutput,
+            Stream maskOutput,
+            string outputPath,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(frameOutput);
+            UpdateFrame latestUpdate = null;
+            using var ffmpegStream = new BinaryWriter(frameOutput, System.Text.Encoding.UTF8, leaveOpen: true);
+            using var maskStream = maskOutput is null
+                ? null
+                : new BinaryWriter(maskOutput, System.Text.Encoding.UTF8, leaveOpen: true);
+
+            DriveInfo outputDrive = _options.SkipDriveWaiting
+                ? null
+                : DriveHelper.GetOutputDrive(outputPath);
             Stopwatch stopwatch = Stopwatch.StartNew();
+            long framesWritten = 0;
+            long copiedFrames = 0;
+            long updateAttempts = 0;
+            long visualUpdates = 0;
+            int updateFrame = _options.UpdateFrame;
+            var timelineCursor = new CommentTimelineCursor(
+                _chatRoot.comments,
+                startTick / (double)_options.Framerate);
 
             // Calculate section baseline Y position
             int sectionDefaultYPos = _context.SectionBaselineY;
@@ -154,9 +183,18 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (currentTick % _updateFrame == 0)
+                if (latestUpdate is null || currentTick % updateFrame == 0)
                 {
-                    latestUpdate = GenerateUpdateFrame(currentTick, sectionDefaultYPos, latestUpdate);
+                    updateAttempts++;
+                    var previousUpdate = latestUpdate;
+                    var newestCommentIndex = timelineCursor.AdvanceTo(
+                        currentTick / (double)_options.Framerate);
+                    latestUpdate = GenerateUpdateFrame(
+                        newestCommentIndex,
+                        sectionDefaultYPos,
+                        latestUpdate);
+                    if (!ReferenceEquals(previousUpdate, latestUpdate))
+                        visualUpdates++;
                 }
 
                 SKBitmap frame = null;
@@ -164,38 +202,27 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 try
                 {
                     (frame, isCopyFrame) = GetFrameFromTick(currentTick, sectionDefaultYPos, latestUpdate);
+                    framesWritten++;
+                    if (isCopyFrame)
+                        copiedFrames++;
 
                     if (!_options.SkipDriveWaiting)
                         DriveHelper.WaitForDrive(outputDrive, _progress, cancellationToken).Wait(cancellationToken);
 
                     try
                     {
-                        ffmpegStream.Write(frame.Bytes);
+                        // SKBitmap.Bytes allocates and copies the entire pixel buffer.
+                        // The synchronous span write keeps the bitmap alive for the
+                        // duration of the write without creating a per-frame LOH array.
+                        ffmpegStream.Write(frame.GetPixelSpan());
                     }
                     catch (IOException ex)
                     {
-                        _progress.LogError($"Write to ffmpeg stdin failed: {ex.Message}");
-                        try
-                        {
-                            _progress.LogInfo($"ffmpeg.HasExited={ffmpegProcess.HasExited}");
-                            if (ffmpegProcess.HasExited)
-                                _progress.LogInfo($"ffmpeg.ExitCode={ffmpegProcess.ExitCode}");
-                        }
-                        catch { }
-
-                        try
-                        {
-                            // Try to capture any remaining stderr from ffmpeg
-                            var stderr = ffmpegProcess.StandardError?.ReadToEnd();
-                            if (!string.IsNullOrEmpty(stderr))
-                                _progress.LogInfo("ffmpeg stderr: " + stderr);
-                        }
-                        catch { }
-
+                        _progress.LogError($"Write to chat frame sink failed: {ex.Message}");
                         throw;
                     }
 
-                    if (maskProcess != null)
+                    if (maskStream != null)
                     {
                         if (!_options.SkipDriveWaiting)
                             DriveHelper.WaitForDrive(outputDrive, _progress, cancellationToken).Wait(cancellationToken);
@@ -203,27 +230,11 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                         SetFrameMask(frame);
                         try
                         {
-                            maskStream.Write(frame.Bytes);
+                            maskStream.Write(frame.GetPixelSpan());
                         }
                         catch (IOException ex)
                         {
-                            _progress.LogError($"Write to ffmpeg mask stdin failed: {ex.Message}");
-                            try
-                            {
-                                _progress.LogInfo($"mask ffmpeg.HasExited={maskProcess.HasExited}");
-                                if (maskProcess.HasExited)
-                                    _progress.LogInfo($"mask ffmpeg.ExitCode={maskProcess.ExitCode}");
-                            }
-                            catch { }
-
-                            try
-                            {
-                                var stderr = maskProcess.StandardError?.ReadToEnd();
-                                if (!string.IsNullOrEmpty(stderr))
-                                    _progress.LogInfo("mask ffmpeg stderr: " + stderr);
-                            }
-                            catch { }
-
+                            _progress.LogError($"Write to chat mask sink failed: {ex.Message}");
                             throw;
                         }
                     }
@@ -232,6 +243,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 {
                     if (isCopyFrame)
                     {
+                        _bitmapCache.ReleaseCanvas(frame);
                         frame?.Dispose();
                     }
                 }
@@ -249,28 +261,50 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
 
             stopwatch.Stop();
             _progress.ReportProgress(100, stopwatch.Elapsed, TimeSpan.Zero);
-            // _progress.LogInfo($"FINISHED. RENDER TIME: {stopwatch.Elapsed.TotalSeconds:F1}s SPEED: {(endTick - startTick) / (double)_options.Framerate / stopwatch.Elapsed.TotalSeconds:F2}x");
+            var bytesPerFrame = (long)_options.ChatWidth * _options.ChatHeight * 4;
+            var streamCount = maskStream is null ? 1 : 2;
+            _progress.LogInfo(
+                $"[RenderMetrics] phase=\"chat_frames\" frames_written={framesWritten} " +
+                $"copied_frames={copiedFrames} update_attempts={updateAttempts} visual_updates={visualUpdates} " +
+                $"raw_bytes_written={framesWritten * bytesPerFrame * streamCount} " +
+                $"bitmap_canvas_cache={_bitmapCache.CanvasCount} bitmap_username_cache={_bitmapCache.UsernameBitmapCount} " +
+                $"bitmap_badge_cache={_bitmapCache.BadgeBitmapCount} bitmap_timestamp_cache={_bitmapCache.TimestampBitmapCount} " +
+                $"bitmap_avatar_cache={_bitmapCache.AvatarBitmapCount} fallback_font_cache={_fontCache.FallbackFontCount} " +
+                $"text_measurement_cache={TextUtilities.MeasurementCacheCount} text_measurement_capacity={TextUtilities.MeasurementCacheCapacity} " +
+                $"image_badges={_imageCache.Badges.Count} image_emotes={_imageCache.Emotes.Count} " +
+                $"image_third_party_emotes={_imageCache.ThirdPartyEmotes.Count} image_cheermotes={_imageCache.Cheermotes.Count} " +
+                $"image_emojis={_imageCache.Emojis.Count} image_avatars={_imageCache.Avatars.Count}");
 
-            latestUpdate?.Image.Dispose();
+            if (latestUpdate is not null)
+            {
+                _bitmapCache.ReleaseCanvas(latestUpdate.Image);
+                latestUpdate.Image.Dispose();
+                foreach (var comment in latestUpdate.Comments)
+                {
+                    _bitmapCache.ReleaseCanvas(comment.Image);
+                    comment.Image.Dispose();
+                }
+                latestUpdate.Comments.Clear();
+            }
 
-            ffmpegStream.Dispose();
-            maskStream?.Dispose();
-
-            ffmpegProcess.WaitForExit(100_000);
-            maskProcess?.WaitForExit(100_000);
+            ffmpegStream.Flush();
+            maskStream?.Flush();
         }
 
-        private UpdateFrame GenerateUpdateFrame(int currentTick, int sectionDefaultYPos, UpdateFrame lastUpdate = null)
+        private UpdateFrame GenerateUpdateFrame(int newestCommentIndex, int sectionDefaultYPos, UpdateFrame lastUpdate = null)
         {
-            SKBitmap newFrame = new SKBitmap(_options.ChatWidth, _options.ChatHeight);
-            double currentTimeSeconds = currentTick / (double)_options.Framerate;
-            int newestCommentIndex = _chatRoot.comments.FindLastIndex(x => x.content_offset_seconds <= currentTimeSeconds);
-
             if (newestCommentIndex == lastUpdate?.CommentIndex)
             {
                 return lastUpdate;
             }
-            lastUpdate?.Image.Dispose();
+
+            if (lastUpdate is not null)
+            {
+                _bitmapCache.ReleaseCanvas(lastUpdate.Image);
+                lastUpdate.Image.Dispose();
+            }
+
+            SKBitmap newFrame = new SKBitmap(_options.ChatWidth, _options.ChatHeight);
 
             List<CommentSection> commentList = lastUpdate?.Comments ?? new List<CommentSection>();
 
@@ -335,6 +369,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             int removeCount = commentList.Count - commentsDrawn;
             for (int i = 0; i < removeCount; i++)
             {
+                _bitmapCache.ReleaseCanvas(commentList[i].Image);
                 commentList[i].Image.Dispose();
             }
             commentList.RemoveRange(0, removeCount);
@@ -387,29 +422,27 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 return null;
             }
 
-            AddImageSection(ref state, state.DefaultPosition);
-            state.DefaultPosition.Y = sectionDefaultYPos;
-            state.DrawPosition.Y = state.DefaultPosition.Y;
-            
-            // Initialize layout state
-            state.LineStartX = state.DefaultPosition.X;
-            state.MaxWidth = _options.ChatWidth - _options.SidePadding;
-            state.CurrentLineHeight = 0;
-            
-            // Debug.WriteLine($"[SectionRenderer.GenerateCommentSection] Layout initialized - LineStartX={state.LineStartX}, MaxWidth={state.MaxWidth}, BaselineY={sectionDefaultYPos}");
-
             if (highlightType is HighlightType.Unknown)
             {
                 highlightType = HighlightIcons.GetHighlightType(comment);
             }
 
+            if (highlightType is not HighlightType.None and not HighlightType.ChannelPointHighlight && !_options.SubMessages)
+            {
+                return null;
+            }
+
+            AddImageSection(ref state, state.DefaultPosition);
+            state.DefaultPosition.Y = sectionDefaultYPos;
+            state.DrawPosition.Y = state.DefaultPosition.Y;
+
+            // Initialize layout state
+            state.LineStartX = state.DefaultPosition.X;
+            state.MaxWidth = _options.ChatWidth - _options.SidePadding;
+            state.CurrentLineHeight = 0;
+
             if (highlightType is not HighlightType.None)
             {
-                if (highlightType is not HighlightType.ChannelPointHighlight && !_options.SubMessages)
-                {
-                    return null;
-                }
-
                 _accentedMessageRenderer.DrawAccentedMessage(comment, ref state, emoteSectionList, highlightType, commentIndex);
             }
             else
@@ -494,6 +527,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
             for (int i = 0; i < sectionImages.Count; i++)
             {
                 finalCanvas.DrawBitmap(sectionImages[i].bitmap, 0, i * _options.SectionHeight);
+                _bitmapCache.ReleaseCanvas(sectionImages[i].bitmap);
                 sectionImages[i].bitmap.Dispose();
             }
             sectionImages.Clear();
@@ -504,7 +538,8 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
 
         private (SKBitmap frame, bool isCopyFrame) GetFrameFromTick(int currentTick, int sectionDefaultYPos, UpdateFrame currentFrame = null)
         {
-            currentFrame ??= GenerateUpdateFrame(currentTick, sectionDefaultYPos);
+            if (currentFrame is null)
+                throw new InvalidOperationException("An update frame must be generated before writing video frames.");
             var (frame, isCopyFrame) = _emoteRenderer.DrawAnimatedEmotes(currentFrame.Image, currentFrame.Comments, currentTick);
             return (frame, isCopyFrame);
         }
@@ -601,6 +636,15 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                     }
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            _emoteRenderer?.Dispose();
         }
     }
 }

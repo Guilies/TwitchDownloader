@@ -15,6 +15,9 @@ namespace TwitchDownloaderCore.ChatRender.Utilities
         // Global text measurement cache - thread-safe
         private static readonly TextMeasurementCache _measurementCache = new();
 
+        internal static int MeasurementCacheCount => _measurementCache.Count;
+        internal static int MeasurementCacheCapacity => _measurementCache.Capacity;
+
         public static float MeasureText(ReadOnlySpan<char> text, SKPaint textFont, bool? isRtl, SKShaper shaper = null)
         {
             isRtl ??= IsRightToLeft(text);

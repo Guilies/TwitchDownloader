@@ -1,11 +1,12 @@
 using System;
 using System.Runtime.CompilerServices;
 using TwitchDownloaderCore.Interfaces;
+using TwitchDownloaderCore.Models;
 using TwitchDownloaderWPF.Models;
 
 namespace TwitchDownloaderWPF.Utils
 {
-    internal class WpfTaskProgress : ITaskProgress
+    internal class WpfTaskProgress : ITaskProgress, IDetailedTaskProgress
     {
         private string _status;
         private bool _statusIsTemplate;
@@ -20,6 +21,7 @@ namespace TwitchDownloaderWPF.Utils
         private readonly Action<string> _handleStatus;
         private readonly Action<string> _handleLog;
         private readonly Action<string> _handleFfmpegLog;
+        private readonly Action<TaskProgressSnapshot> _handleDetailedProgress;
 
         public WpfTaskProgress(Action<int> handlePercent, Action<string> handleStatus)
         {
@@ -27,16 +29,24 @@ namespace TwitchDownloaderWPF.Utils
             _handleStatus = handleStatus;
             _handleLog = null;
             _handleFfmpegLog = null;
+            _handleDetailedProgress = null;
 
             _logLevel = LogLevel.None;
         }
 
-        public WpfTaskProgress(LogLevel logLevel, Action<int> handlePercent, Action<string> handleStatus, Action<string> handleLog, Action<string> handleFfmpegLog = null)
+        public WpfTaskProgress(
+            LogLevel logLevel,
+            Action<int> handlePercent,
+            Action<string> handleStatus,
+            Action<string> handleLog,
+            Action<string> handleFfmpegLog = null,
+            Action<TaskProgressSnapshot> handleDetailedProgress = null)
         {
             _handlePercent = handlePercent;
             _handleStatus = handleStatus;
             _handleLog = handleLog;
             _handleFfmpegLog = handleFfmpegLog;
+            _handleDetailedProgress = handleDetailedProgress;
 
             _logLevel = logLevel;
             if (handleFfmpegLog is not null)
@@ -125,6 +135,20 @@ namespace TwitchDownloaderWPF.Utils
                 var status = string.Format(_status, percent, time1, time2);
                 _handleStatus?.Invoke(status);
             }
+        }
+
+        public void ReportDetailedProgress(TaskProgressSnapshot snapshot)
+        {
+            ArgumentNullException.ThrowIfNull(snapshot);
+            if (_handleDetailedProgress is not null)
+            {
+                _handleDetailedProgress(snapshot);
+                return;
+            }
+
+            ReportProgress(snapshot.OverallPercent);
+            _handleStatus?.Invoke(
+                $"[{snapshot.PhaseIndex}/{snapshot.PhaseCount}] {snapshot.Action}");
         }
 
         public void LogVerbose(string logMessage)

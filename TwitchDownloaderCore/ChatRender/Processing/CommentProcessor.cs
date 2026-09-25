@@ -29,6 +29,7 @@ namespace TwitchDownloaderCore.ChatRender.Processing
 
             FloorCommentOffsets(comments);
             RemoveRestrictedComments(comments);
+            StableSortByOffset(comments);
         }
 
         /// <summary>
@@ -105,6 +106,32 @@ namespace TwitchDownloaderCore.ChatRender.Processing
                     comments.RemoveAt(i);
                 }
             }
+        }
+
+        private static void StableSortByOffset(List<Comment> comments)
+        {
+            var isSorted = true;
+            for (var i = 1; i < comments.Count; i++)
+            {
+                if (comments[i - 1].content_offset_seconds <= comments[i].content_offset_seconds)
+                    continue;
+
+                isSorted = false;
+                break;
+            }
+
+            if (isSorted)
+                return;
+
+            var sortedComments = comments
+                .Select((comment, originalIndex) => (comment, originalIndex))
+                .OrderBy(x => x.comment.content_offset_seconds)
+                .ThenBy(x => x.originalIndex)
+                .Select(x => x.comment)
+                .ToArray();
+
+            comments.Clear();
+            comments.AddRange(sortedComments);
         }
 
         private static bool IsNotAscii(char input) => input > 127;

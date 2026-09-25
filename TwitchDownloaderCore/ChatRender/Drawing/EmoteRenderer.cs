@@ -242,7 +242,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
 
             for (int i = 0; i < emote.EmoteFrameDurations.Count; i++)
             {
-                if (imageFrame - emote.EmoteFrameDurations[i] * 10 <= 0)
+                if (imageFrame - emote.EmoteFrameDurations[i] * 10 < 0)
                 {
                     return i;
                 }
@@ -279,6 +279,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
                 _animatedFrameBuffer.Width != requiredInfo.Width ||
                 _animatedFrameBuffer.Height != requiredInfo.Height)
             {
+                _bitmapCache.ReleaseCanvas(_animatedFrameBuffer);
                 _animatedFrameBuffer?.Dispose();
                 _animatedFrameBuffer = new SKBitmap(requiredInfo);
             }
@@ -323,6 +324,7 @@ namespace TwitchDownloaderCore.ChatRender.Drawing
 
         public void Dispose()
         {
+            _bitmapCache.ReleaseCanvas(_animatedFrameBuffer);
             _animatedFrameBuffer?.Dispose();
             _animatedFrameBuffer = null;
         }

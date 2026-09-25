@@ -120,7 +120,14 @@ namespace TwitchDownloaderCore.TwitchObjects
 
             height = TwitchHelper.SnapResizeHeight(height, upSnapThreshold, downSnapThreshold, codecInfo.Height);
 
-            var imageInfo = new SKImageInfo((int)(height / (double)codecInfo.Height * codecInfo.Width), height);
+            Resize(Math.Max(1, (int)(height / (double)codecInfo.Height * codecInfo.Width)), height);
+        }
+
+        internal void Resize(int width, int height)
+        {
+            if (width <= 0 || height <= 0)
+                throw new ArgumentOutOfRangeException(nameof(width), "Image dimensions must be positive.");
+            var imageInfo = new SKImageInfo(width, height);
             for (var i = 0; i < FrameCount; i++)
             {
                 var newBitmap = new SKBitmap(imageInfo);

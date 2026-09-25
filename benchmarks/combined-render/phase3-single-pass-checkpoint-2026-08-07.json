@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-08-07",
+  "scenario": "phase3_single_pass_5s_800x360",
+  "changes": [
+    "FFmpeg-independent raw chat frame stream",
+    "Raw chat input connected directly to final compositor stdin",
+    "Temporary chat video encode, file, and decode removed",
+    "One final video encode",
+    "Synchronous OS-pipe backpressure",
+    "Stream producer failure and process-tree cancellation handling",
+    "SSIM comparison with corrected two-pass reference"
+  ],
+  "runs": [
+    {
+      "chatPrepareMilliseconds": 25,
+      "singlePassEncodeMilliseconds": 235,
+      "totalMilliseconds": 260,
+      "processCpuMilliseconds": 62,
+      "managedAllocatedBytes": 2474664
+    },
+    {
+      "chatPrepareMilliseconds": 23,
+      "singlePassEncodeMilliseconds": 218,
+      "totalMilliseconds": 241,
+      "processCpuMilliseconds": 78,
+      "managedAllocatedBytes": 2470616
+    },
+    {
+      "chatPrepareMilliseconds": 23,
+      "singlePassEncodeMilliseconds": 217,
+      "totalMilliseconds": 240,
+      "processCpuMilliseconds": 78,
+      "managedAllocatedBytes": 2472832
+    }
+  ],
+  "median": {
+    "chatPrepareMilliseconds": 23,
+    "singlePassEncodeMilliseconds": 218,
+    "totalMilliseconds": 241,
+    "processCpuMilliseconds": 78,
+    "managedAllocatedBytes": 2472832,
+    "framesWritten": 26,
+    "updateAttempts": 26,
+    "visualUpdates": 3,
+    "rawChatBytesWritten": 5990400,
+    "temporaryChatVideoCreated": false,
+    "videoEncodeProcesses": 1,
+    "outputBytes": 509277,
+    "ssimVsTwoPass": 0.993553
+  },
+  "comparisonToPhase2Checkpoint": {
+    "measuredTimeReductionPercent": 13.9,
+    "managedAllocationReductionPercent": 8.5,
+    "temporaryChatVideoReductionPercent": 100.0,
+    "videoEncodeProcessReductionPercent": 50.0,
+    "qualityConclusion": "The single-pass output exceeds the 0.98 SSIM regression floor against the corrected two-pass reference."
+  }
+}

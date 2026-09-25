@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-08-07",
+  "scenario": "phase4_ffmpeg_profiles",
+  "changes": [
+    "Typed Fast, Balanced, and Quality software profiles",
+    "Functionally probed NVENC, Quick Sync, AMF, and VideoToolbox profiles",
+    "Safe libx264 fallback when the requested hardware/profile probe fails",
+    "Codec thread options scoped to software encoding; filter threads remain independent",
+    "Machine-readable FFmpeg progress with monotonic duration mapping",
+    "Shared validated profile, encoder, VOD thread, chat thread, and FFmpeg thread options in WPF and CLI"
+  ],
+  "canonicalBalancedRuns": [
+    {
+      "chatPrepareMilliseconds": 23,
+      "singlePassEncodeMilliseconds": 208,
+      "totalMilliseconds": 231,
+      "processCpuMilliseconds": 31,
+      "managedAllocatedBytes": 2471680
+    },
+    {
+      "chatPrepareMilliseconds": 22,
+      "singlePassEncodeMilliseconds": 211,
+      "totalMilliseconds": 233,
+      "processCpuMilliseconds": 62,
+      "managedAllocatedBytes": 2474048
+    },
+    {
+      "chatPrepareMilliseconds": 23,
+      "singlePassEncodeMilliseconds": 208,
+      "totalMilliseconds": 231,
+      "processCpuMilliseconds": 47,
+      "managedAllocatedBytes": 2487696
+    }
+  ],
+  "canonicalBalancedMedian": {
+    "chatPrepareMilliseconds": 23,
+    "singlePassEncodeMilliseconds": 208,
+    "totalMilliseconds": 231,
+    "processCpuMilliseconds": 47,
+    "managedAllocatedBytes": 2474048,
+    "framesWritten": 26,
+    "rawChatBytesWritten": 5990400,
+    "videoEncodeProcesses": 1,
+    "outputBytes": 509277,
+    "ssimVsTwoPass": 0.993553
+  },
+  "softwareProfileRuns": [
+    {
+      "Fast": { "encodeMilliseconds": 237, "outputBytes": 1549788, "ssimVsLosslessSource": 0.975183 },
+      "Balanced": { "encodeMilliseconds": 357, "outputBytes": 1943640, "ssimVsLosslessSource": 0.976760 },
+      "Quality": { "encodeMilliseconds": 615, "outputBytes": 2453332, "ssimVsLosslessSource": 0.978002 }
+    },
+    {
+      "Fast": { "encodeMilliseconds": 213, "outputBytes": 1549788, "ssimVsLosslessSource": 0.975183 },
+      "Balanced": { "encodeMilliseconds": 344, "outputBytes": 1943640, "ssimVsLosslessSource": 0.976760 },
+      "Quality": { "encodeMilliseconds": 597, "outputBytes": 2453332, "ssimVsLosslessSource": 0.978002 }
+    },
+    {
+      "Fast": { "encodeMilliseconds": 212, "outputBytes": 1549788, "ssimVsLosslessSource": 0.975183 },
+      "Balanced": { "encodeMilliseconds": 349, "outputBytes": 1943640, "ssimVsLosslessSource": 0.976760 },
+      "Quality": { "encodeMilliseconds": 619, "outputBytes": 2453332, "ssimVsLosslessSource": 0.978002 }
+    }
+  ],
+  "softwareProfileMedian": {
+    "Fast": { "preset": "veryfast", "crf": 24, "encodeMilliseconds": 213, "outputBytes": 1549788, "ssimVsLosslessSource": 0.975183 },
+    "Balanced": { "preset": "medium", "crf": 23, "encodeMilliseconds": 349, "outputBytes": 1943640, "ssimVsLosslessSource": 0.976760 },
+    "Quality": { "preset": "slow", "crf": 20, "encodeMilliseconds": 615, "outputBytes": 2453332, "ssimVsLosslessSource": 0.978002 }
+  },
+  "notes": [
+    "The profile microbenchmark isolates software encode policy on a lossless 5-second 1280x720 30 fps source; it is not the full combined pipeline.",
+    "Fast encoded 39.0% faster than Balanced on this fixture. Quality encoded 76.2% slower than Balanced.",
+    "Hardware performance is machine-specific and was not included in this software-only checkpoint. Every hardware selection is smoke-tested with its exact profile arguments at runtime."
+  ]
+}

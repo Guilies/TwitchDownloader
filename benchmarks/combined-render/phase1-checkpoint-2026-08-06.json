@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-08-06",
+  "scenario": "phase0_two_pass_5s_800x360",
+  "changes": [
+    "Span-based SKBitmap pixel writes",
+    "Binary-search plus monotonic comment cursor",
+    "Allocate update bitmaps only after a visual change",
+    "Explicit transient canvas release and renderer resource ownership",
+    "Removal of forced full garbage collections"
+  ],
+  "runs": [
+    {
+      "chatRenderMilliseconds": 112,
+      "compositeMilliseconds": 219,
+      "totalMilliseconds": 331,
+      "processCpuMilliseconds": 62,
+      "managedAllocatedBytes": 2697072
+    },
+    {
+      "chatRenderMilliseconds": 96,
+      "compositeMilliseconds": 210,
+      "totalMilliseconds": 307,
+      "processCpuMilliseconds": 78,
+      "managedAllocatedBytes": 2726496
+    },
+    {
+      "chatRenderMilliseconds": 118,
+      "compositeMilliseconds": 209,
+      "totalMilliseconds": 327,
+      "processCpuMilliseconds": 62,
+      "managedAllocatedBytes": 2739568
+    }
+  ],
+  "median": {
+    "chatRenderMilliseconds": 112,
+    "compositeMilliseconds": 210,
+    "totalMilliseconds": 327,
+    "processCpuMilliseconds": 62,
+    "managedAllocatedBytes": 2726496,
+    "framesWritten": 151,
+    "updateAttempts": 26,
+    "visualUpdates": 3,
+    "rawChatBytesWritten": 34790400,
+    "bitmapCanvasCacheEntriesAtEnd": 4
+  },
+  "comparisonToPhase0Median": {
+    "managedAllocationReductionPercent": 92.7,
+    "canvasEntryReductionPercent": 87.5,
+    "timingConclusion": "The five-second fixture is dominated by process startup and is too noisy for a render-speed conclusion. Longer fixtures are required."
+  }
+}

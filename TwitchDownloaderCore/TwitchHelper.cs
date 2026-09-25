@@ -17,6 +17,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Mono.Unix;
 using TwitchDownloaderCore.Chat;
+using TwitchDownloaderCore.ChatRender.Processing;
 using TwitchDownloaderCore.Interfaces;
 using TwitchDownloaderCore.Tools;
 using TwitchDownloaderCore.TwitchObjects;
@@ -475,12 +476,15 @@ namespace TwitchDownloaderCore
             DirectoryInfo stvFolder = new DirectoryInfo(Path.Combine(cacheFolder, "stv"));
 
             EmoteResponse emoteDataResponse = await GetThirdPartyEmotesMetadata(streamerId, bttv, ffz, stv, allowUnlistedEmotes, logger, cancellationToken);
+            var referencedEmoteCodes = comments is null
+                ? null
+                : ChatAssetIndex.BuildWhitespaceDelimitedTokens(comments);
 
             if (bttv)
             {
                 try
                 {
-                    await FetchEmoteImages(comments, emoteDataResponse.BTTV, emotes, bttvFolder, logger, cancellationToken);
+                    await FetchEmoteImages(referencedEmoteCodes, emoteDataResponse.BTTV, emotes, bttvFolder, logger, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -492,7 +496,7 @@ namespace TwitchDownloaderCore
             {
                 try
                 {
-                    await FetchEmoteImages(comments, emoteDataResponse.FFZ, emotes, ffzFolder, logger, cancellationToken);
+                    await FetchEmoteImages(referencedEmoteCodes, emoteDataResponse.FFZ, emotes, ffzFolder, logger, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -504,7 +508,7 @@ namespace TwitchDownloaderCore
             {
                 try
                 {
-                    await FetchEmoteImages(comments, emoteDataResponse.STV, emotes, stvFolder, logger, cancellationToken);
+                    await FetchEmoteImages(referencedEmoteCodes, emoteDataResponse.STV, emotes, stvFolder, logger, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -514,14 +518,14 @@ namespace TwitchDownloaderCore
 
             return emotes.Values.ToList();
 
-            static async Task FetchEmoteImages([AllowNull] IEnumerable<Comment> comments, IEnumerable<EmoteResponseItem> emoteResponse, Dictionary<string, TwitchEmote> emotes,
+            static async Task FetchEmoteImages([AllowNull] IReadOnlySet<string> referencedEmoteCodes, IEnumerable<EmoteResponseItem> emoteResponse, Dictionary<string, TwitchEmote> emotes,
                 DirectoryInfo cacheFolder, ITaskLogger logger, CancellationToken cancellationToken)
             {
                 if (!cacheFolder.Exists)
                     cacheFolder = CreateDirectory(cacheFolder.FullName);
 
                 IEnumerable<EmoteResponseItem> emoteResponseQuery;
-                if (comments is null)
+                if (referencedEmoteCodes is null)
                 {
                     emoteResponseQuery = emoteResponse;
                 }
@@ -529,8 +533,7 @@ namespace TwitchDownloaderCore
                 {
                     emoteResponseQuery = from emote in emoteResponse
                                          where !emotes.ContainsKey(emote.Code)
-                                         let regex = new Regex($@"(?<=^|\s){Regex.Escape(emote.Code)}(?=$|\s)")
-                                         where comments.Any(comment => regex.IsMatch(comment.message.body))
+                                         where referencedEmoteCodes.Contains(emote.Code)
                                          select emote;
                 }
 
@@ -578,6 +581,7 @@ namespace TwitchDownloaderCore
         public static async Task<List<TwitchEmote>> GetEmotes(List<Comment> comments, string cacheFolder, ITaskLogger logger, EmbeddedData embeddedData = null, bool offline = false, CancellationToken cancellationToken = default)
         {
             var emotes = new Dictionary<string, TwitchEmote>();
+            var toFetch = GetReferencedFirstPartyEmoteIds(comments);
 
             DirectoryInfo emoteFolder = new DirectoryInfo(Path.Combine(cacheFolder, "emotes"));
             if (!emoteFolder.Exists)
@@ -586,8 +590,8 @@ namespace TwitchDownloaderCore
             // Load our embedded emotes
             if (embeddedData?.firstParty != null)
             {
-                emotes.EnsureCapacity(embeddedData.firstParty.Count);
-                foreach (EmbedEmoteData emoteData in embeddedData.firstParty)
+                emotes.EnsureCapacity(Math.Min(embeddedData.firstParty.Count, toFetch.Count));
+                foreach (EmbedEmoteData emoteData in embeddedData.firstParty.Where(x => toFetch.Contains(x.id)))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
@@ -608,25 +612,12 @@ namespace TwitchDownloaderCore
                 }
             }
 
-            var toFetch = new HashSet<string>();
-            foreach (var comment in comments.Where(c => c.message.fragments != null))
-            {
-                foreach (var fragment in comment.message.fragments)
-                {
-                    var id = fragment.emoticon?.emoticon_id;
-                    if (id is not null)
-                    {
-                        toFetch.Add(id);
-                    }
-                }
-            }
-
             var failedEmotes = new HashSet<string>();
             foreach (var id in toFetch)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (failedEmotes.Contains(id))
+                if (emotes.ContainsKey(id) || failedEmotes.Contains(id))
                 {
                     continue;
                 }
@@ -654,6 +645,50 @@ namespace TwitchDownloaderCore
             }
 
             return emotes.Values.ToList();
+        }
+
+        internal static HashSet<string> GetReferencedFirstPartyEmoteIds(IEnumerable<Comment> comments)
+        {
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var comment in comments)
+            {
+                if (comment.message?.fragments is null)
+                    continue;
+
+                foreach (var fragment in comment.message.fragments)
+                {
+                    var id = fragment.emoticon?.emoticon_id;
+                    if (!string.IsNullOrWhiteSpace(id))
+                        ids.Add(id);
+                }
+            }
+
+            return ids;
+        }
+
+        internal static Dictionary<string, HashSet<string>> GetReferencedBadgeVersions(IEnumerable<Comment> comments)
+        {
+            var badges = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            foreach (var comment in comments)
+            {
+                if (comment.message?.user_badges is null)
+                    continue;
+
+                foreach (var badge in comment.message.user_badges)
+                {
+                    if (string.IsNullOrWhiteSpace(badge._id) || string.IsNullOrWhiteSpace(badge.version))
+                        continue;
+
+                    if (!badges.TryGetValue(badge._id, out var versions))
+                    {
+                        versions = new HashSet<string>(StringComparer.Ordinal);
+                        badges.Add(badge._id, versions);
+                    }
+                    versions.Add(badge.version);
+                }
+            }
+
+            return badges;
         }
 
         public static async Task<List<EmbedChatBadge>> GetChatBadgesData(List<Comment> comments, int streamerId, CancellationToken cancellationToken = new())
@@ -685,19 +720,17 @@ namespace TwitchDownloaderCore
             var subBadges = (await subBadgeResponse.Content.ReadFromJsonAsync<GqlSubBadgeResponse>(cancellationToken: cancellationToken)).data.user.badges.GroupBy(x => x.name).ToDictionary(x => x.Key, x => x.ToList());
 
             List<EmbedChatBadge> badges = new List<EmbedChatBadge>();
+            var referencedBadges = GetReferencedBadgeVersions(comments);
 
-            var nameList = comments.Where(comment => comment.message.user_badges != null)
-                .SelectMany(comment => comment.message.user_badges)
-                .Where(badge => !string.IsNullOrWhiteSpace(badge._id))
-                .Where(badge => globalBadges.ContainsKey(badge._id) || subBadges.ContainsKey(badge._id))
-                .Select(badge => badge._id).Distinct();
-
-            foreach (var name in nameList)
+            foreach (var (name, referencedVersions) in referencedBadges)
             {
+                if (!globalBadges.ContainsKey(name) && !subBadges.ContainsKey(name))
+                    continue;
+
                 Dictionary<string, ChatBadgeData> versions = new();
                 if (globalBadges.TryGetValue(name, out var globalBadge))
                 {
-                    foreach (var badge in globalBadge)
+                    foreach (var badge in globalBadge.Where(x => referencedVersions.Contains(x.version)))
                     {
                         versions[badge.version] = new()
                         {
@@ -711,7 +744,7 @@ namespace TwitchDownloaderCore
                 //Prefer channel specific badges over global ones
                 if (subBadges.TryGetValue(name, out var subBadge))
                 {
-                    foreach (var badge in subBadge)
+                    foreach (var badge in subBadge.Where(x => referencedVersions.Contains(x.version)))
                     {
                         versions[badge.version] = new()
                         {
@@ -731,18 +764,28 @@ namespace TwitchDownloaderCore
         public static async Task<List<ChatBadge>> GetChatBadges(List<Comment> comments, int streamerId, string cacheFolder, ITaskLogger logger, EmbeddedData embeddedData = null, bool offline = false, CancellationToken cancellationToken = default)
         {
             var badges = new Dictionary<string, ChatBadge>();
+            var referencedBadges = GetReferencedBadgeVersions(comments);
 
             // Load our embedded data from file
             if (embeddedData?.twitchBadges != null)
             {
-                badges.EnsureCapacity(embeddedData.twitchBadges.Count);
+                badges.EnsureCapacity(Math.Min(embeddedData.twitchBadges.Count, referencedBadges.Count));
                 foreach (EmbedChatBadge data in embeddedData.twitchBadges)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    if (!referencedBadges.TryGetValue(data.name, out var referencedVersions))
+                        continue;
+
+                    var filteredVersions = data.versions
+                        .Where(x => referencedVersions.Contains(x.Key))
+                        .ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
+                    if (filteredVersions.Count == 0)
+                        continue;
+
                     try
                     {
-                        ChatBadge newBadge = new ChatBadge(data.name, data.versions);
+                        ChatBadge newBadge = new ChatBadge(data.name, filteredVersions);
 
                         if (!badges.TryAdd(data.name, newBadge))
                         {
@@ -804,11 +847,16 @@ namespace TwitchDownloaderCore
             return badges.Values.ToList();
         }
 
-        public static async Task<Dictionary<string, SKBitmap>> GetEmojis(string cacheFolder, EmojiVendor emojiVendor, ITaskLogger logger, CancellationToken cancellationToken = default)
+        public static async Task<Dictionary<string, SKBitmap>> GetEmojis(
+            string cacheFolder,
+            EmojiVendor emojiVendor,
+            IReadOnlySet<string> requestedEmojiKeys,
+            ITaskLogger logger,
+            CancellationToken cancellationToken = default)
         {
             var returnCache = new Dictionary<string, SKBitmap>();
 
-            if (emojiVendor == EmojiVendor.None)
+            if (emojiVendor == EmojiVendor.None || requestedEmojiKeys is not { Count: > 0 })
                 return returnCache;
 
             var emojiFolder = Path.Combine(cacheFolder, "emojis", emojiVendor.EmojiFolder());
@@ -817,8 +865,12 @@ namespace TwitchDownloaderCore
 
             var enumerationOptions = new EnumerationOptions { MatchType = MatchType.Simple, MatchCasing = MatchCasing.CaseInsensitive };
             var emojiFiles = Directory.GetFiles(emojiFolder, "*.png", enumerationOptions);
+            var existingEmojiKeys = emojiFiles
+                .Select(Path.GetFileNameWithoutExtension)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var hasMissingEmoji = requestedEmojiKeys.Any(key => !existingEmojiKeys.Contains(key));
 
-            if (emojiFiles.Length < emojiVendor.EmojiCount())
+            if (hasMissingEmoji)
             {
                 var emojiZipPath = Path.Combine(emojiFolder, Path.GetRandomFileName());
                 try
@@ -832,18 +884,20 @@ namespace TwitchDownloaderCore
                     using var archive = ZipFile.OpenRead(emojiZipPath);
                     var emojiAssetsPath = emojiVendor.AssetPath();
                     var emojis = archive.Entries
-                        .Where(x => !string.IsNullOrWhiteSpace(x.Name) && Path.GetDirectoryName(x.FullName) == emojiAssetsPath);
+                        .Where(x => !string.IsNullOrWhiteSpace(x.Name) && Path.GetDirectoryName(x.FullName) == emojiAssetsPath)
+                        .Select(x => (Entry: x, Filename: x.Name.ToUpperInvariant().Replace(emojiVendor.UnicodeSequenceSeparator(), ' ')))
+                        .Where(x => requestedEmojiKeys.Contains(Path.GetFileNameWithoutExtension(x.Filename)));
 
                     foreach (var emoji in emojis)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        var filePath = Path.Combine(emojiFolder, emoji.Name.ToUpper().Replace(emojiVendor.UnicodeSequenceSeparator(), ' '));
+                        var filePath = Path.Combine(emojiFolder, emoji.Filename);
                         if (!File.Exists(filePath))
                         {
                             try
                             {
-                                emoji.ExtractToFile(filePath);
+                                emoji.Entry.ExtractToFile(filePath);
                             }
                             catch { /* Being written by a parallel process? */ }
                         }
@@ -859,6 +913,10 @@ namespace TwitchDownloaderCore
                     }
                 }
             }
+
+            emojiFiles = emojiFiles
+                .Where(path => requestedEmojiKeys.Contains(Path.GetFileNameWithoutExtension(path)))
+                .ToArray();
 
             var failedToDecode = 0;
             foreach (var emojiPath in emojiFiles)

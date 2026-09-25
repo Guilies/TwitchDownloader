@@ -1,3 +1,5 @@
+using System;
+
 namespace TwitchDownloaderCore.Models
 {
     /// <summary>
@@ -14,6 +16,9 @@ namespace TwitchDownloaderCore.Models
         public int ScaledVodWidth { get; set; }
         public int ScaledVodHeight { get; set; }
 
+        // Width reserved for the VOD in the final side-by-side layout.
+        public int VodCellWidth { get; set; }
+
         // Chat dimensions (always full output height)
         public int ChatWidth { get; set; }
         public int ChatHeight { get; set; }
@@ -24,9 +29,13 @@ namespace TwitchDownloaderCore.Models
 
         // Letterboxing information
         public bool RequiresLetterboxing => ScaledVodHeight < OutputHeight;
+        public bool RequiresPillarboxing => ScaledVodWidth < VodCellWidth;
+        public bool RequiresPadding => RequiresLetterboxing || RequiresPillarboxing;
         public int LetterboxPaddingTop { get; set; }
         public int LetterboxPaddingBottom { get; set; }
         public int TotalLetterboxPadding => LetterboxPaddingTop + LetterboxPaddingBottom;
+        public int VodPaddingLeft { get; set; }
+        public int VodPaddingRight { get; set; }
 
         // Scaling factors
         public double VodScalingFactor { get; set; }
@@ -37,7 +46,7 @@ namespace TwitchDownloaderCore.Models
         /// Calculates letterbox padding to center the VOD vertically
         /// Also ensures all dimensions are even numbers for H.264 encoding
         /// </summary>
-        public void CalculateLetterboxPadding()
+        public void CalculatePadding()
         {
             // CRITICAL: Ensure all dimensions are even for H.264 encoding
             ScaledVodWidth = (ScaledVodWidth / 2) * 2;
@@ -46,18 +55,18 @@ namespace TwitchDownloaderCore.Models
             ChatHeight = (ChatHeight / 2) * 2;
             OutputWidth = (OutputWidth / 2) * 2;
             OutputHeight = (OutputHeight / 2) * 2;
-            
-            if (ScaledVodHeight >= OutputHeight)
-            {
-                LetterboxPaddingTop = 0;
-                LetterboxPaddingBottom = 0;
-                return;
-            }
+            VodCellWidth = (VodCellWidth / 2) * 2;
 
-            int totalPadding = OutputHeight - ScaledVodHeight;
-            LetterboxPaddingTop = totalPadding / 2;
-            LetterboxPaddingBottom = totalPadding - LetterboxPaddingTop;
+            int verticalPadding = Math.Max(0, OutputHeight - ScaledVodHeight);
+            LetterboxPaddingTop = verticalPadding / 2;
+            LetterboxPaddingBottom = verticalPadding - LetterboxPaddingTop;
+
+            int horizontalPadding = Math.Max(0, VodCellWidth - ScaledVodWidth);
+            VodPaddingLeft = horizontalPadding / 2;
+            VodPaddingRight = horizontalPadding - VodPaddingLeft;
         }
+
+        public void CalculateLetterboxPadding() => CalculatePadding();
 
         /// <summary>
         /// Returns a summary string for debugging and logging
@@ -68,7 +77,7 @@ namespace TwitchDownloaderCore.Models
                    $"Scaled VOD={ScaledVodWidth}x{ScaledVodHeight}, " +
                    $"Chat={ChatWidth}x{ChatHeight}, " +
                    $"Output={OutputWidth}x{OutputHeight}, " +
-                   $"Letterbox={LetterboxPaddingTop}/{LetterboxPaddingBottom}, " +
+                   $"Padding=L{VodPaddingLeft}/R{VodPaddingRight}/T{LetterboxPaddingTop}/B{LetterboxPaddingBottom}, " +
                    $"VodScale={VodScalingFactor:F3}";
         }
     }

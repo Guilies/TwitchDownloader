@@ -26,9 +26,18 @@ namespace TwitchDownloaderCore
         private readonly ITaskProgress _progress;
         private readonly string _cacheDir;
         private readonly string _vodCacheDir;
+        private readonly ResolvedVideoDownloadPlan _resolvedPlan;
         private bool _shouldClearCache = true;
 
         public VideoDownloader(VideoDownloadOptions videoDownloadOptions, ITaskProgress progress = default)
+            : this(videoDownloadOptions, progress, null)
+        {
+        }
+
+        internal VideoDownloader(
+            VideoDownloadOptions videoDownloadOptions,
+            ITaskProgress progress,
+            ResolvedVideoDownloadPlan resolvedPlan)
         {
             downloadOptions = videoDownloadOptions;
             _cacheDir = CacheDirectoryService.GetCacheDirectory(downloadOptions.TempFolder);
@@ -36,6 +45,7 @@ namespace TwitchDownloaderCore
             downloadOptions.TrimBeginningTime = downloadOptions.TrimBeginningTime >= TimeSpan.Zero ? downloadOptions.TrimBeginningTime : TimeSpan.Zero;
             downloadOptions.TrimEndingTime = downloadOptions.TrimEndingTime >= TimeSpan.Zero ? downloadOptions.TrimEndingTime : TimeSpan.Zero;
             _progress = progress;
+            _resolvedPlan = resolvedPlan;
         }
 
         public async Task DownloadAsync(CancellationToken cancellationToken)
@@ -68,15 +78,19 @@ namespace TwitchDownloaderCore
 
             try
             {
-                GqlVideoResponse videoInfoResponse = await TwitchHelper.GetVideoInfo(downloadOptions.Id);
+                GqlVideoResponse videoInfoResponse = _resolvedPlan?.VideoInfoResponse
+                    ?? await TwitchHelper.GetVideoInfo(downloadOptions.Id);
                 if (videoInfoResponse.data.video == null)
                 {
                     throw new NullReferenceException("Invalid VOD, deleted/expired VOD possibly?");
                 }
 
-                GqlVideoChapterResponse videoChapterResponse = await TwitchHelper.GetOrGenerateVideoChapters(downloadOptions.Id, videoInfoResponse.data.video);
+                GqlVideoChapterResponse videoChapterResponse = _resolvedPlan?.VideoChapterResponse
+                    ?? await TwitchHelper.GetOrGenerateVideoChapters(downloadOptions.Id, videoInfoResponse.data.video);
 
-                var (allQualityPaths, qualityPlaylist) = await GetQualityPlaylist();
+                var (allQualityPaths, qualityPlaylist) = _resolvedPlan is null
+                    ? await GetQualityPlaylist()
+                    : (_resolvedPlan.AllQualityPaths, _resolvedPlan.QualityPlaylist);
 
                 var playlistUrl = qualityPlaylist.Path;
                 var baseUrl = new Uri(playlistUrl[..(playlistUrl.LastIndexOf('/') + 1)], UriKind.Absolute);

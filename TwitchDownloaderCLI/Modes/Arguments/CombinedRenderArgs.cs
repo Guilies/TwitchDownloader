@@ -102,12 +102,21 @@ namespace TwitchDownloaderCLI.Modes.Arguments
         [Option("embed-images", Default = true, HelpText = "Embed emotes, badges, and cheermotes into the chat download.")]
         public bool EmbedChatData { get; set; }
 
+        [Option("chat-threads", Default = 4, HelpText = "Number of parallel chat download requests (1-10).")]
+        public int ChatDownloadThreads { get; set; }
+
         // FFmpeg Options
         [Option("ffmpeg-path", HelpText = "Path to FFmpeg executable.")]
         public string FfmpegPath { get; set; }
 
         [Option("ffmpeg-threads", Default = 0, HelpText = "Number of threads for FFmpeg encoding. 0 = auto-detect all CPU cores. Recommended: 0 for most users.")]
         public int FfmpegThreads { get; set; }
+
+        [Option("render-profile", Default = CombinedRenderSpeedProfile.Balanced, HelpText = "Encoding profile: Fast, Balanced, or Quality.")]
+        public CombinedRenderSpeedProfile RenderProfile { get; set; }
+
+        [Option("encoder", Default = CombinedRenderEncoder.Software, HelpText = "Encoder: Software, AutoHardware, NvidiaNvenc, IntelQuickSync, AmdAmf, or AppleVideoToolbox. Unsupported hardware falls back to software.")]
+        public CombinedRenderEncoder Encoder { get; set; }
 
         [Option("temp-path", Default = "", HelpText = "Path to temporary folder to use for cache.")]
         public string TempFolder { get; set; }

@@ -18,6 +18,12 @@ namespace TwitchDownloaderCore.ChatRender.Caching
         public List<CheerEmote> Cheermotes { get; private set; }
         public Dictionary<string, SKBitmap> Emojis { get; private set; }
         public Dictionary<string, SKBitmap> Avatars { get; private set; }
+        public Dictionary<string, TwitchEmote> Gifs { get; private set; } = new(StringComparer.Ordinal);
+        public bool HasAnimatedAssets =>
+            Gifs.Values.Any(x => x.FrameCount > 1) ||
+            Emotes.Any(x => x.FrameCount > 1) ||
+            ThirdPartyEmotes.Any(x => x.FrameCount > 1) ||
+            Cheermotes.Any(x => x.tierList.Any(tier => tier.Value.FrameCount > 1));
 
         public ImageCache()
         {
@@ -35,7 +41,8 @@ namespace TwitchDownloaderCore.ChatRender.Caching
             List<TwitchEmote> thirdPartyEmotes,
             List<CheerEmote> cheermotes,
             Dictionary<string, SKBitmap> emojis,
-            Dictionary<string, SKBitmap> avatars)
+            Dictionary<string, SKBitmap> avatars,
+            Dictionary<string, TwitchEmote> gifs = null)
         {
             Badges = badges;
             Emotes = emotes;
@@ -43,6 +50,7 @@ namespace TwitchDownloaderCore.ChatRender.Caching
             Cheermotes = cheermotes;
             Emojis = emojis;
             Avatars = avatars;
+            Gifs = gifs ?? new Dictionary<string, TwitchEmote>(StringComparer.Ordinal);
 
             // Sort lists for binary search
             Badges.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
@@ -53,6 +61,10 @@ namespace TwitchDownloaderCore.ChatRender.Caching
 
         public void Dispose()
         {
+            foreach (var gif in Gifs.Values)
+                gif.Dispose();
+            Gifs.Clear();
+
             // Dispose badge bitmaps
             foreach (var badge in Badges)
             {

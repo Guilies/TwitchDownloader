@@ -37,7 +37,7 @@
             <RowDefinition Height="auto"/>
             <RowDefinition Height="auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="28"/>
+            <RowDefinition Height="62"/>
         </Grid.RowDefinitions>
         
         <!-- LEFT PANEL: VOD Info -->
@@ -99,6 +99,27 @@
                             <TextBlock Text="FFmpeg Threads:" Width="100" VerticalAlignment="Center" Foreground="{DynamicResource AppText}" />
                             <hc:NumericUpDown x:Name="numFfmpegThreads" Minimum="0" Maximum="128" Value="0" Width="80" ValueChanged="numFfmpegThreads_ValueChanged" Background="{DynamicResource AppElementBackground}" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}" />
                             <TextBlock Text="(0 = Auto)" Margin="5,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource AppText}" FontStyle="Italic"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,5">
+                            <TextBlock Text="Render Profile:" Width="100" VerticalAlignment="Center" Foreground="{DynamicResource AppText}" />
+                            <ComboBox x:Name="comboRenderProfile" MinWidth="150" Background="{DynamicResource AppElementBackground}" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}">
+                                <ComboBoxItem Content="Fast" Tag="Fast"/>
+                                <ComboBoxItem Content="Balanced" Tag="Balanced" IsSelected="True"/>
+                                <ComboBoxItem Content="Quality" Tag="Quality"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,5">
+                            <TextBlock Text="Encoder:" Width="100" VerticalAlignment="Center" Foreground="{DynamicResource AppText}" />
+                            <ComboBox x:Name="comboEncoder" MinWidth="180" Background="{DynamicResource AppElementBackground}" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}">
+                                <ComboBoxItem Content="Software (x264)" Tag="Software" IsSelected="True"/>
+                                <ComboBoxItem Content="Auto Hardware" Tag="AutoHardware"/>
+                                <ComboBoxItem Content="NVIDIA NVENC" Tag="NvidiaNvenc"/>
+                                <ComboBoxItem Content="Intel Quick Sync" Tag="IntelQuickSync"/>
+                                <ComboBoxItem Content="AMD AMF" Tag="AmdAmf"/>
+                                <ComboBoxItem Content="Apple VideoToolbox" Tag="AppleVideoToolbox"/>
+                            </ComboBox>
                         </StackPanel>
 
                         <Separator Margin="0,15,0,15" Background="{DynamicResource AppElementBorder}"/>
@@ -180,6 +201,11 @@
                             <hc:NumericUpDown x:Name="numFontSize" Minimum="8" Maximum="48" Value="24" Width="80" Background="{DynamicResource AppElementBackground}" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}" />
                         </StackPanel>
 
+                        <StackPanel Orientation="Horizontal" Margin="0,8">
+                            <TextBlock Text="Download Threads:" Width="120" VerticalAlignment="Center" Foreground="{DynamicResource AppText}" />
+                            <hc:NumericUpDown x:Name="numChatDownloadThreads" Minimum="1" Maximum="10" Value="4" Width="80" Background="{DynamicResource AppElementBackground}" BorderBrush="{DynamicResource AppElementBorder}" Foreground="{DynamicResource AppText}" />
+                        </StackPanel>
+
                         <Separator Margin="0,10,0,10" Background="{DynamicResource AppElementBorder}"/>
 
                         <TextBlock Text="Display Options" FontWeight="Bold" FontSize="12" Margin="0,0,0,5" Foreground="{DynamicResource AppText}" />
@@ -236,10 +262,29 @@
                 <Image x:Name="statusImage" gif:ImageBehavior.AnimatedSource="Images/ppHop.gif"/>
             </StatusBarItem>
             <StatusBarItem Padding="10,1,0,1">
-                <TextBlock Text="{lex:Loc StatusIdle}" x:Name="statusMessage" FontWeight="Bold" Foreground="{DynamicResource StatusBarText}"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{lex:Loc StatusIdle}" x:Name="statusMessage" FontWeight="Bold" Foreground="{DynamicResource StatusBarText}"/>
+                    <TextBlock x:Name="statusProgressDetail" Text="Waiting to start" FontSize="11" MaxWidth="390" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource StatusBarText}"/>
+                </StackPanel>
             </StatusBarItem>
-            <StatusBarItem Padding="10,1,10,1" HorizontalAlignment="Right">
-                <ProgressBar Width="200" Height="14" x:Name="statusProgressBar" Background="{DynamicResource StatusBarElement}" Foreground="{DynamicResource ProgressBarForeground}"/>
+            <StatusBarItem Padding="10,3,10,3" HorizontalAlignment="Right">
+                <Grid Width="330">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="55"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="42"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="24"/>
+                        <RowDefinition Height="24"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Overall" VerticalAlignment="Center" Foreground="{DynamicResource StatusBarText}"/>
+                    <ProgressBar Grid.Row="0" Grid.Column="1" Height="14" x:Name="statusOverallProgressBar" Background="{DynamicResource StatusBarElement}" Foreground="{DynamicResource ProgressBarForeground}"/>
+                    <TextBlock Grid.Row="0" Grid.Column="2" x:Name="statusOverallPercent" Text="0%" Margin="6,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource StatusBarText}"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Action" VerticalAlignment="Center" Foreground="{DynamicResource StatusBarText}"/>
+                    <ProgressBar Grid.Row="1" Grid.Column="1" Height="14" x:Name="statusActionProgressBar" Background="{DynamicResource StatusBarElement}" Foreground="{DynamicResource ProgressBarForeground}"/>
+                    <TextBlock Grid.Row="1" Grid.Column="2" x:Name="statusActionPercent" Text="0%" Margin="6,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource StatusBarText}"/>
+                </Grid>
             </StatusBarItem>
         </StatusBar>
     </Grid>

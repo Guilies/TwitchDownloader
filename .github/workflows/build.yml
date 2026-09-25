@@ -56,9 +56,19 @@ jobs:
         file-url: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
         # New filename to rename the downloaded file
         file-name: ffmpeg.zip
-        
+
+    - name: Extract and verify FFmpeg NVENC support
+      shell: pwsh
+      run: |
+        tar xfz ffmpeg.zip --strip-components=1
+        $nvencAvailable = .\bin\ffmpeg.exe -hide_banner -encoders 2>&1 |
+          Select-String -Pattern '\bh264_nvenc\b' -Quiet
+        if (-not $nvencAvailable) {
+          throw "The Windows FFmpeg bundle does not advertise h264_nvenc support."
+        }
+
     - name: Bundle FFmpeg
-      run: tar xfz ffmpeg.zip --strip-components=1; copy bin/ffmpeg.exe TwitchDownloaderWPF/bin/Release/net6.0-windows/publish/win-x64/ffmpeg.exe
+      run: copy bin/ffmpeg.exe TwitchDownloaderWPF/bin/Release/net6.0-windows/publish/win-x64/ffmpeg.exe
       
     - name: Zip Windows GUI Release Asset
       uses: vimtor/action-zip@v1.2

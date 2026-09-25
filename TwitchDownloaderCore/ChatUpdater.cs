@@ -280,6 +280,7 @@ namespace TwitchDownloaderCore
             _progress.ReportProgress(currentStep * 100 / totalSteps);
 
             chatRoot.embeddedData ??= new EmbeddedData();
+            await TwitchGifMetadata.EnrichAsync(chatRoot.comments, _progress, cancellationToken);
 
             var embedTasks = new[]
             {
@@ -287,6 +288,7 @@ namespace TwitchDownloaderCore
                 Task.Run(() => ThirdPartyEmoteTask(cancellationToken), cancellationToken),
                 Task.Run(() => ChatBadgeTask(cancellationToken), cancellationToken),
                 Task.Run(() => BitTask(cancellationToken), cancellationToken),
+                GifImages.EmbedAsync(chatRoot, _cacheDir, _progress, cancellationToken, _updateOptions.ReplaceEmbeds),
             };
 
             await Task.WhenAll(embedTasks);

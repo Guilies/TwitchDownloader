@@ -1,7 +1,6 @@
 using NeoSmart.Unicode;
 using SkiaSharp;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -26,9 +25,6 @@ namespace TwitchDownloaderCore.ChatRender.Message
     public sealed class MessageRenderer
     {
         private static readonly SKColor Purple = SKColor.Parse("#7B2CF2");
-
-        // TODO: Use FrozenDictionary when .NET 8
-        private static readonly IReadOnlyDictionary<int, string> AllEmojiSequences = Emoji.All.ToDictionary(e => e.SortOrder, e => e.Sequence.AsString);
 
         private readonly ChatRenderOptions _options;
         private readonly RenderContext _context;
@@ -75,10 +71,24 @@ namespace TwitchDownloaderCore.ChatRender.Message
             int bitsCount = comment.message.bits_spent;
             foreach (var fragment in comment.message.fragments)
             {
+                if (fragment.gif != null)
+                {
+                    if (fragment.gif.TryGetAsset(out var key, out _) && _imageCache.Gifs.TryGetValue(key, out var gif))
+                    {
+                        DrawGif(gif, ref state, emotePositionList);
+                    }
+                    else
+                    {
+                        var label = string.IsNullOrWhiteSpace(fragment.text) ? "[GIF unavailable]" : fragment.text;
+                        foreach (var word in label.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                            DrawFragmentPart(ref state, emotePositionList, bitsCount, word, highlightWords);
+                    }
+                    continue;
+                }
                 if (fragment.emoticon == null)
                 {
                     // Either text or third party emote
-                    var fragmentParts = TextUtilities.SwapRightToLeft(fragment.text.Split(' '));
+                    var fragmentParts = TextUtilities.SwapRightToLeft((fragment.text ?? string.Empty).Split(' '));
                     foreach (var fragmentString in fragmentParts)
                     {
                         if (string.IsNullOrEmpty(fragmentString))
@@ -94,6 +104,24 @@ namespace TwitchDownloaderCore.ChatRender.Message
             }
             
             System.Diagnostics.Debug.WriteLine($"[MessageRenderer.DrawMessage] END - FinalPos=({state.DrawPosition.X},{state.DrawPosition.Y}), EmotesDrawn={emotePositionList.Count}");
+        }
+
+        private void DrawGif(TwitchEmote gif, ref RenderContext.DrawingState state,
+            List<(Point, TwitchEmote)> emotePositionList)
+        {
+            // Reserve whole sections below the preceding text, so large GIFs do not overlap
+            // usernames, following fragments or adjacent messages. Animation uses the same
+            // overlay compositor as emotes in standalone, mask and combined renders.
+            var start = new Point { X = state.LineStartX, Y = state.DefaultPosition.Y };
+            _addImageSectionCallback(ref state, start);
+            var y = (state.SectionImages.Count - 1) * _options.SectionHeight;
+            emotePositionList.Add((new Point { X = start.X, Y = y }, gif));
+            var sections = (gif.Height + _options.SectionHeight - 1) / _options.SectionHeight;
+            for (var section = 1; section < sections; section++)
+                _addImageSectionCallback(ref state, start);
+
+            // Any following fragment starts below the GIF.
+            state.DrawPosition.X = state.MaxWidth;
         }
 
         private void DrawFragmentPart(
@@ -278,44 +306,11 @@ namespace TwitchDownloaderCore.ChatRender.Message
         /// </summary>
         private SingleEmoji? FindMatchingEmoji(string textElement)
         {
-            var emojiBag = new ConcurrentBag<SingleEmoji>();
-
-            // Parallel search for matching emojis
-            Emoji.All.AsParallel()
-                .Where(emoji => textElement.StartsWith(AllEmojiSequences[emoji.SortOrder]))
-                .ForAll(emoji =>
-                {
-                    // Special handling for flags - require exact match
-                    if (emoji.Group == "Flags")
-                    {
-                        if (textElement.StartsWith(AllEmojiSequences[emoji.SortOrder], StringComparison.Ordinal))
-                        {
-                            emojiBag.Add(emoji);
-                        }
-                    }
-                    else
-                    {
-                        emojiBag.Add(emoji);
-                    }
-                });
-
-            if (emojiBag.IsEmpty)
-            {
-                return null;
-            }
-
-            // Filter to only emojis that exist in our cache
-            var validMatches = emojiBag
-                .Where(emoji => _imageCache.Emojis.ContainsKey(GeometryUtilities.GetKeyName(emoji.Sequence.Codepoints)))
-                .ToList();
-
-            if (validMatches.Count == 0)
-            {
-                return null;
-            }
-
-            // Return the most specific match (highest sort order)
-            return validMatches.MaxBy(x => x.SortOrder);
+            var emoji = EmojiIndex.Find(textElement);
+            return emoji is not null &&
+                   _imageCache.Emojis.ContainsKey(GeometryUtilities.GetKeyName(emoji.Value.Sequence.Codepoints))
+                ? emoji
+                : null;
         }
 
         /// <summary>
